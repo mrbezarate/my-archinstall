@@ -61,7 +61,7 @@ pacman_install \
     xwayland-satellite \
     waybar \
     swaync \
-    rofi-wayland \
+    rofi \
     swaybg \
     hyprlock \
     hypridle \

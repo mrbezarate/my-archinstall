@@ -36,7 +36,6 @@ pacman_install \
     dnsmasq \
     iptables-nft \
     nftables \
-    bridge-utils \
     openvswitch \
     dmidecode \
     wireshark-qt \

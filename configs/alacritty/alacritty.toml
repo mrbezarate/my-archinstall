@@ -1,42 +1,76 @@
-# ~/.config/alacritty/alacritty.toml
+[general]
+import = [
+    "~/.config/alacritty/colors.toml"
+]
+
+
+
+
+live_config_reload = true
+
+[window]
+opacity = 0.40
+padding = { x = 10, y = 10 }
+decorations = "full"
+dynamic_padding = true
+dynamic_title = true
+
+[window.class]
+general = "Alacritty"
+instance = "Alacritty"
 
 [font]
-normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
-bold = { family = "JetBrainsMono Nerd Font", style = "Bold" }
-italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
-size = 11.0 # Adjust size to match your preference
+size = 12.0
+
+[font.normal]
+family = "JetBrainsMono Nerd Font"
+style = "Regular"
+
+[font.bold]
+family = "JetBrainsMono Nerd Font"
+style = "Bold"
+
+[font.italic]
+family = "JetBrainsMono Nerd Font"
+style = "Italic"
+
+[font.bold_italic]
+family = "JetBrainsMono Nerd Font"
+style = "Bold Italic"
+
+[font.offset]
+x = 0
+y = 1
+
+[selection]
+save_to_clipboard = true
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+[cursor.style]
+blinking = "On"
+shape = "Block"
+
+[env]
+TERM = "xterm-256color"
 
 
-[colors.primary]
-background = "#111214"
-foreground = "#E8E8E8"
 
-[colors.cursor]
-text = "#111214"
-cursor = "#E52B2B"
 
-[colors.normal]
-black   = "#111214"
-red     = "#E52B2B"
-green   = "#B8B8B8"
-yellow  = "#D8D8D8"
-blue    = "#8F8F8F"
-magenta = "#F0F0F0"
-cyan    = "#A6A6A6"
-white   = "#E8E8E8"
 
-[colors.bright]
-black   = "#303136"
-red     = "#FF3838"
-green   = "#C8C8C8"
-yellow  = "#E5E5E5"
-blue    = "#A8A8A8"
-magenta = "#FFFFFF"
-cyan    = "#C0C0C0"
-white   = "#FFFFFF"
-[window]
-padding.x = 16
-padding.y = 16
-opacity = 0.95  # Adjust transparency between 0.0 (invisible) and 1.0 (opaque)
-blur = true    # Requests the compositor to blur behind the window
-decorations = "None"
+[[keyboard.bindings]]
+key = "C"
+mods = "Control"
+action = "Copy"
+
+[[keyboard.bindings]]
+key = "V"
+mods = "Control"
+action = "Paste"
+
+[[keyboard.bindings]]
+key = "X"
+mods = "Control"
+action = "Copy"

@@ -203,7 +203,7 @@ echo -e "\n${CYAN}>>> STEP 2: KVM / QEMU / Virt-Manager / Network Lab <<<${NC}"
 "$SCRIPT_DIR/scripts/setup_kvm.sh"
 
 echo -e "\n${CYAN}>>> STEP 3: Hyprland Desktop (xarefin rice) / Waybar / SwayNC / SDDM <<<${NC}"
-"$SCRIPT_DIR/scripts/setup_niri.sh"
+"$SCRIPT_DIR/scripts/setup_hyprland.sh"
 
 echo -e "\n${CYAN}>>> STEP 4: Comprehensive System Verification <<<${NC}"
 "$SCRIPT_DIR/scripts/verify.sh"

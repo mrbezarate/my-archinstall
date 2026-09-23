@@ -1,34 +1,236 @@
-// -*- mode: jsonc -*-
 {
-    "layer": "top", // Waybar at top layer
-    "position": "top", // Waybar position (top|bottom|left|right)
-    "height": 42, // Waybar height (to be removed for auto height)
-    // "width": 1280, // Waybar width
-    "spacing": 4, // Gaps between modules (4px)
-    "border": "none",
-    // Choose the order of the modules
+    "layer": "top",
+    "position": "top",
+    "margin-top": 6,
+    "margin-left": 10,
+    "margin-right": 10,
+    "height": 34,
+    "reload_style_on_change": true,
     "modules-left": [
-        "clock",
         "custom/arch",
-        "niri/workspaces"
+        "hyprland/workspaces",
+        "mpris",
+        "custom/cava"
     ],
     "modules-center": [
-      "custom/media"
+        "clock"
     ],
     "modules-right": [
-        "idle_inhibitor",
+        "custom/weather",
+        "custom/vitals",
+        "backlight",
         "pulseaudio",
+        "pulseaudio#microphone",
+        "custom/notification",
+        "bluetooth",
         "network",
-        "cpu",
-        "memory",
- //     "temperature",
- //     "backlight",
         "battery",
-        "custom/notification"
+        "custom/power"
     ],
-    //Modules configuration
-
-    "include": [
-		"~/.config/waybar/modules.json"
-	]
+    
+    // Modules configuration
+    "custom/arch": {
+        "format": "󰣇",
+        "tooltip": false,
+        "on-click": "rofi -show drun",
+        "on-click-right": "kitty btop",
+        "on-click-middle": "kitty --hold fastfetch"
+    },
+    "hyprland/workspaces": {
+        "active-only": false,
+        "all-outputs": true,
+        "format": "{icon}",
+        "show-special": false,
+        "tooltip" : false,
+        "on-click": "activate",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e+1\" })'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e-1\" })'",
+        "persistent-workspaces": {
+            "*": 10
+        },
+        "format-icons": {
+            "default": "", 
+            "active": "",
+            "empty": "",
+            "urgent": ""
+        }
+    },
+    "mpris": {
+        "format": "{player_icon} {title} - {artist}",
+        "format-paused": "{status_icon} {title} - {artist}",
+        "format-no-players": "No player",
+        "max-length": 20,
+        "tooltip": true,
+        "tooltip-format": "󰎆 Player: {player} ({status})\n󰚺 Artist: {artist}\n󰝚 Title: {title}\n󰀥 Album: {album}",
+        "player-icons": {
+            "chromium": " ",
+            "default": "󰎈",
+            "firefox": " ",
+            "kdeconnect": "",
+            "mopidy": " ",
+            "mpv": "󰐹 ",
+            "spotify": " ",
+            "vlc": "󰕼 ",
+            "brave": " "
+        },
+        "status-icons": {
+            "paused": ""
+        },
+        "on-click": "playerctl play-pause",
+        "on-click-right": "playerctl next",
+        "on-click-middle": "playerctl previous",
+        "on-scroll-up": "playerctl volume 0.05+",
+        "on-scroll-down": "playerctl volume 0.05-"
+    },
+    "custom/cava": {
+        "exec": "~/.config/hypr/scripts/cava.sh",
+        "format": "{}",
+        "tooltip": false,
+        "on-click": "kitty cava"
+    },
+    "clock": {
+    "interval": 1,
+    "format": "󰥔 {:%I:%M:%S %p}",
+    "format-alt": "󰃭 {:%a, %b %d}",
+    "tooltip-format": "<tt><small>{calendar}</small></tt>",
+    "calendar": {
+        "mode": "month",
+        "mode-mon-col": 1,
+        "on-scroll": 1,
+        "format": {
+            "months": "<span color='#ffead3'><b>{}</b></span>",
+            "days": "<span color='#ecc6d9'><b>{}</b></span>",
+            "weeks": "<span color='#99ffdd'><b>W{}</b></span>",
+            "weekdays": "<span color='#ffcc00'><b>{}</b></span>",
+            "today": "<span color='#ff6666'><b><u>{}</u></b></span>"
+            }
+        },
+        "on-click-right": "kitty tty-clock -c -t -s",
+        "actions": {
+            "on-scroll-up": "shift_up",
+            "on-scroll-down": "shift_down"
+        }
+    },
+    "custom/weather": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "/home/arefin/.config/hypr/scripts/weather.py",
+        "interval": 10,
+        "tooltip": true,
+        "on-click": "/home/arefin/.config/hypr/scripts/weather.py --click"
+    },
+    "custom/vitals": {
+    "exec": "~/.config/hypr/scripts/vitals.sh",
+    "return-type": "json",
+    "interval": 2,
+    "format": "{}",
+    "on-click": "kitty btop",
+    "tooltip": true
+},
+    "backlight": {
+        "device": "intel_backlight",
+        "format": "{icon} {percent}%",
+        "format-icons": ["󰃞", "󰃟", "󰃠"],
+        "on-scroll-up": "brightnessctl set +1%",
+        "on-scroll-down": "brightnessctl set 1%-",
+        "on-click": "kitty brightness-tui",
+        "tooltip": true,
+        "tooltip-format": "󰃞 Backlight Level: {percent}%\n󰌆 Controller: intel_backlight"
+    },
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-bluetooth": "󰋎 {volume}%",
+        "format-muted": "󰝟 ",
+        "format-icons": {
+            "headphone": "",
+            "hands-free": "󰋎",
+            "headset": "󰋎",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", "", ""]
+        },
+        "on-click": "kitty wiremix",
+        "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+        "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +1%",
+        "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -1%",
+        "tooltip": true,
+        "tooltip-format": "󰕾 Volume: {volume}%\n󰓃 Sink Device: {desc}"
+    },
+    "pulseaudio#microphone": {
+        "format": "{format_source}",
+        "format-source": " {volume}%",
+        "format-source-muted": " ",
+        "on-click-right": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+        "on-click": "kitty wiremix -v input",
+        "on-scroll-up": "pactl set-source-volume @DEFAULT_SOURCE@ +1%",
+        "on-scroll-down": "pactl set-source-volume @DEFAULT_SOURCE@ -1%",
+        "max-volume": 100,
+        "tooltip": true,
+        "tooltip-format": "󰍬 Microphone Level: {source_volume}%\n󰓃 Source Device: {source_desc}"
+    },
+    "network": {
+        "format-wifi": "  {essid}",
+        "format-ethernet": "󰈀 Wired",
+        "format-disconnected": " ",
+        "max-length": 10,
+        "tooltip": true,
+        "tooltip-format": "  Name: {essid}\n󰈀 Interface: {ifname} via {gwaddr}\n󰩟 IP: {ipaddr}/{cidr}\n󰖩 Signal: {signaldBm}dBm ({signalStrength}%)",
+        "on-click": "kitty wlctl",
+        "on-click-right": "kitty bandwhich"
+    },
+    "bluetooth": {
+        "format": "󰂯",
+        "format-off": "󰂲",
+        "format-disabled": "󰂲",
+        "format-connected": "󰂱 {num_connections}",
+        "format-connected-battery": "󰂱 {num_connections}",
+        "tooltip": true,
+        "tooltip-format": "󰂯 {controller_alias}\t{controller_address}\n\n󰓩 {num_connections} connected",
+        "tooltip-format-connected": "󰂯 {controller_alias}\t{controller_address}\n\n󰓩 {num_connections} connected:\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "󰂱 {device_alias}\t{device_address}",
+        "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias}\t{device_address}\t{device_battery_percentage}%",
+        "on-click": "kitty bluetui",
+        "on-click-right": "bluetoothctl power toggle"
+    },
+    "battery": {
+        "interval": 2,
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        "format-full": "󱟢 100%",
+        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+        "tooltip": true,
+        "tooltip-format": "󱐋 Power: {timeTo}\n󱃌 Power draw: {power:0.1f} W\n󰓅 Health: {health}%",
+        "on-click": "kitty battop"
+    },
+    "custom/notification": {
+        "format": "{icon} {text}",
+        "format-icons": {
+            "notification": "󰂚<span foreground='red'><sup></sup></span>",
+            "none": "󰂚",
+            "dnd-notification": "󰂛<span foreground='red'><sup></sup></span>",
+            "dnd-none": "󰂛",
+            "inhibited-notification": "󰂚<span foreground='red'><sup></sup></span>",
+            "inhibited-none": "󰂚",
+            "dnd-inhibited-notification": "󰂛<span foreground='red'><sup></sup></span>",
+            "dnd-inhibited-none": "󰂛"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-middle": "swaync-client -C -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "custom/power": {
+        "format": "⏻",
+        "tooltip": false,
+        "on-click": "wlogout"
+    }
 }

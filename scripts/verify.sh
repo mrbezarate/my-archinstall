@@ -229,12 +229,10 @@ printf "  ${RED}? Failures:${NC} %d checks\n" "$fail_count"
 
 if (( fail_count == 0 )); then
     echo -e "\n${GREEN}${BOLD}[SUCCESS] All core components and configs are installed correctly!${NC}"
-    echo -e "${CYAN}${BOLD}HOW TO LOGIN TO NIRI / HYPRLAND:${NC}"
+    echo -e "${CYAN}${BOLD}LOGIN INFORMATION:${NC}"
     echo -e "  1. Reboot your computer."
-    echo -e "  2. On the SDDM login screen (where you enter password):"
-    echo -e "     Look at the ${BOLD}Session dropdown${NC} (bottom-left or top-left corner)."
-    echo -e "  3. Select ${BOLD}'Niri'${NC} (or 'Hyprland') instead of 'Plasma (KDE)'."
-    echo -e "  4. Type your password and enjoy your aesthetic desktop!\n"
+    echo -e "  2. SDDM will automatically load ${BOLD}Hyprland${NC} by default."
+    echo -e "  3. Type your password and enter your aesthetic Hyprland desktop!\n"
 else
     echo -e "\n${RED}${BOLD}[ATTENTION] There were $fail_count issues detected above.${NC}"
     echo -e "Review the [? FAIL] lines above to see exactly what failed."

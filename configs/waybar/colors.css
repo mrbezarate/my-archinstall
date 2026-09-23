@@ -1,0 +1,46 @@
+/* ==========================================================================
+   Active Theme Colors (Used by Waybar)
+   ========================================================================== */
+@define-color matugen-accent         #85d6c0;
+@define-color matugen-bg-dot         alpha(#85d6c0, 0.25);
+
+/* ==========================================================================
+   Full Matugen Palette Library (For Future Use)
+   ========================================================================== */
+
+/* --- Primary Palette --- */
+@define-color matugen-primary                #85d6c0;
+@define-color matugen-on-primary             #00382e;
+@define-color matugen-primary-container      #005143;
+@define-color matugen-on-primary-container   #a1f2dc;
+
+/* --- Secondary Palette --- */
+@define-color matugen-secondary              #b1ccc3;
+@define-color matugen-on-secondary           #1d352f;
+@define-color matugen-secondary-container    #334b45;
+@define-color matugen-on-secondary-container #cde8df;
+
+/* --- Tertiary Palette --- */
+@define-color matugen-tertiary               #aacbe3;
+@define-color matugen-on-tertiary            #103447;
+@define-color matugen-tertiary-container     #2a4a5f;
+@define-color matugen-on-tertiary-container  #c7e7ff;
+
+/* --- Error Palette --- */
+@define-color matugen-error                  #ffb4ab;
+@define-color matugen-on-error               #690005;
+@define-color matugen-error-container        #93000a;
+@define-color matugen-on-error-container     #ffdad6;
+
+/* --- Surface & Background --- */
+@define-color matugen-surface                #0e1513;
+@define-color matugen-on-surface             #dee4e0;
+@define-color matugen-surface-variant        #3f4945;
+@define-color matugen-on-surface-variant    #bfc9c4;
+@define-color matugen-surface-container      #1b211f;
+
+/* --- Outline & Accents --- */
+@define-color matugen-outline                #89938f;
+@define-color matugen-outline-variant        #3f4945;
+@define-color matugen-shadow                 #000000;
+@define-color matugen-scrim                  #000000;

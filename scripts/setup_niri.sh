@@ -62,6 +62,7 @@ pacman_install \
 log "Installing Niri/Wayland UI"
 pacman_install \
     niri \
+    hyprland \
     xwayland-satellite \
     waybar \
     swaync \

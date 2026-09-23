@@ -38,6 +38,14 @@ if ((${#header_pkgs[@]})); then
     pacman_install "${header_pkgs[@]}"
 fi
 
+log "Installing Intel Iris Xe iGPU, Mesa, and Touchpad drivers"
+pacman_install \
+    mesa \
+    vulkan-intel \
+    intel-media-driver \
+    libinput \
+    xf86-input-libinput
+
 log "Installing NVIDIA userspace + open DKMS driver"
 pacman_install \
     nvidia-open-dkms \
@@ -51,12 +59,34 @@ if pacman -Si lib32-nvidia-utils >/dev/null 2>&1; then
     pacman_install lib32-nvidia-utils || true
 fi
 
-# Persistent DRM modeset for Wayland on modern NVIDIA
+# Persistent DRM modeset + fbdev for Wayland on modern NVIDIA
 install -d -m 0755 /etc/modprobe.d
 cat > /etc/modprobe.d/nvidia.conf <<'EOF'
-options nvidia_drm modeset=1
+options nvidia_drm modeset=1 fbdev=1
 options nvidia NVreg_PreserveVideoMemoryAllocations=1
 EOF
+
+# Ensure touchpad tapping and natural scrolling are enabled system-wide
+install -d -m 0755 /etc/X11/xorg.conf.d
+cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<'EOF'
+Section "InputClass"
+    Identifier "touchpad"
+    Driver "libinput"
+    MatchIsTouchpad "on"
+    Option "Tapping" "on"
+    Option "ClickMethod" "clickfinger"
+    Option "NaturalScrolling" "true"
+EndSection
+EOF
+
+# Early KMS in mkinitcpio so display drivers load before login screen
+if [[ -f /etc/mkinitcpio.conf ]]; then
+    for mod in nvidia nvidia_modeset nvidia_uvm nvidia_drm; do
+        if ! grep -q "$mod" /etc/mkinitcpio.conf; then
+            sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $mod)/" /etc/mkinitcpio.conf
+        fi
+    done
+fi
 
 # DKMS pacman hooks compile modules automatically. dkms autoinstall is non-fatal if running kernel differs from new headers
 if command -v dkms >/dev/null 2>&1; then
@@ -66,7 +96,7 @@ fi
 
 # mkinitcpio creates the initramfs ramdisk for early driver loading (NOT a bootloader)
 if command -v mkinitcpio >/dev/null 2>&1; then
-    log "Regenerating initramfs (adding nvidia modules to ramdisk)..."
+    log "Regenerating initramfs (early KMS modules)..."
     mkinitcpio -P || true
 fi
 

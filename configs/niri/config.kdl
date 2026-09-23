@@ -6,12 +6,14 @@
 // ENVIRONMENT VARIABLES
 // ---------------------------------------------------------------------
 environment {
-    DISPLAY ":0"
     MOZ_ENABLE_WAYLAND "1"
     XDG_CURRENT_DESKTOP "Niri"
     XDG_SESSION_TYPE "wayland"
     ELECTRON_OZONE_PLATFORM_HINT "auto"
-    GTK_THEME "HighContrastInverse"
+    QT_QPA_PLATFORM "wayland"
+    GBM_BACKEND "nvidia-drm"
+    __GLX_VENDOR_LIBRARY_NAME "nvidia"
+    LIBVA_DRIVER_NAME "nvidia"
 }
 // ---------------------------------------------------------------------
 // INPUT CONFIGURATION

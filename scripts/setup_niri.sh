@@ -103,6 +103,22 @@ systemctl enable --now bluetooth.service 2>/dev/null || true
 systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
 systemctl enable sddm.service 2>/dev/null || true
 
+log "Configuring SDDM Display Manager (Default session: Niri, cursor: visible)"
+install -d -m 0755 /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/10-session.conf <<'EOF'
+[Theme]
+Current=breeze
+CursorTheme=breeze_cursors
+
+[Users]
+DefaultSession=niri.desktop
+EOF
+
+# If Breeze theme is available, use our beautiful wallpaper in SDDM login screen
+if [[ -d /usr/share/sddm/themes/breeze && -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then
+    cp -f "$SCRIPT_DIR/assets/wallpaper.png" /usr/share/sddm/themes/breeze/wallpaper.png 2>/dev/null || true
+fi
+
 # ASUS tools (asusctl): attempt official repository or AUR fallback without aborting on network errors
 install_asus_tools() {
     log "Configuring ASUS ROG utilities..."

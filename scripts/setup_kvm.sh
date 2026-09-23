@@ -33,6 +33,8 @@ pacman_install \
     libvirt \
     virt-manager \
     virt-viewer \
+    edk2-ovmf \
+    swtpm \
     dnsmasq \
     iptables-nft \
     nftables \

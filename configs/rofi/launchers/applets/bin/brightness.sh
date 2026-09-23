@@ -6,12 +6,12 @@
 ## Applets : Brightness
 
 # Import Current Theme
-source "$HOME"/.config/rofi/applets/shared/theme.bash
+source "$HOME"/.config/rofi/launchers/applets/shared/theme.bash
 theme="$type/$style"
 
 # Brightness Info
-backlight="$(printf "%.0f\n" `light -G`)"
-card="`light -L | grep 'backlight' | head -n1 | cut -d'/' -f3`"
+backlight="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
+card="$(brightnessctl -m 2>/dev/null | cut -d, -f1 | head -n1)"
 
 if [[ $backlight -ge 0 ]] && [[ $backlight -le 29 ]]; then
     level="Low"
@@ -79,13 +79,15 @@ run_rofi() {
 # Execute Command
 run_cmd() {
 	if [[ "$1" == '--opt1' ]]; then
-		light -A 5
+		brightnessctl set +5%
 	elif [[ "$1" == '--opt2' ]]; then
-		light -S 25
+		brightnessctl set 25%
 	elif [[ "$1" == '--opt3' ]]; then
-		light -U 5
+		brightnessctl set 5%-
 	elif [[ "$1" == '--opt4' ]]; then
-		xfce4-power-manager-settings
+		if command -v nwg-look >/dev/null 2>&1; then
+			nwg-look &
+		fi
 	fi
 }
 

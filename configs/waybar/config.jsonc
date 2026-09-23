@@ -24,7 +24,6 @@
  //     "temperature",
  //     "backlight",
         "battery",
-        "battery#bat2",
         "custom/notification"
     ],
     //Modules configuration

@@ -6,7 +6,7 @@
 ## Applets : Power Menu
 
 # Import Current Theme
-source "$HOME"/.config/rofi/applets/shared/theme.bash
+source "$HOME"/.config/rofi/launchers/applets/shared/theme.bash
 theme="$type/$style"
 
 # Theme Elements
@@ -90,11 +90,11 @@ confirm_run () {
 # Execute Command
 run_cmd() {
 	if [[ "$1" == '--opt1' ]]; then
-		betterlockscreen -l
+		hyprlock
 	elif [[ "$1" == '--opt2' ]]; then
 		confirm_run 'kill -9 -1'
 	elif [[ "$1" == '--opt3' ]]; then
-		confirm_run 'mpc -q pause' 'amixer set Master mute' 'systemctl suspend'
+		confirm_run 'playerctl pause' 'wpctl set-mute @DEFAULT_AUDIO_SINK@ 1' 'systemctl suspend'
 	elif [[ "$1" == '--opt4' ]]; then
 		confirm_run 'systemctl hibernate'
 	elif [[ "$1" == '--opt5' ]]; then

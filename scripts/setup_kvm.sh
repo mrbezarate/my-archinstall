@@ -1,26 +1,20 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=========================================="
-echo " [2/3] Setting up KVM, Virt-Manager & Lab "
-echo "=========================================="
-
-if [ "$EUID" -ne 0 ]; then
-    echo "[!] Please run with sudo or as root"
+if [[ ${EUID} -ne 0 ]]; then
+    echo "[!] Run this script through install.sh or with sudo."
     exit 1
 fi
 
-ACTUAL_USER="${SUDO_USER:-$USER}"
-if [ "$ACTUAL_USER" = "root" ]; then
-    echo "[!] Warning: Script running directly as root. Please specify user for group assignment:"
-    read -p "Username: " TARGET_USER
-    ACTUAL_USER="$TARGET_USER"
+ACTUAL_USER="${TARGET_USER:-${SUDO_USER:-}}"
+if [[ -z "$ACTUAL_USER" || "$ACTUAL_USER" == root ]] || ! getent passwd "$ACTUAL_USER" >/dev/null; then
+    echo "[!] Normal target user could not be determined."
+    exit 1
 fi
 
-echo "[*] Target user: $ACTUAL_USER"
+log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
-# 1. Install KVM, QEMU, Libvirt, Virt-Manager, Wireshark and Network Utilities
-echo "[*] Installing virtualization packages..."
+log "Installing KVM/QEMU/libvirt and network lab tools"
 pacman -S --needed --noconfirm \
     qemu-desktop \
     libvirt \
@@ -37,52 +31,79 @@ pacman -S --needed --noconfirm \
     wireshark-qt \
     tcpdump
 
-# 2. Add user to virtualization and packet capture groups
-echo "[*] Adding $ACTUAL_USER to libvirt, kvm, wireshark groups..."
-groupadd -f libvirt
-groupadd -f kvm
-groupadd -f wireshark
-usermod -aG libvirt,kvm,wireshark,input "$ACTUAL_USER"
+for group in libvirt kvm wireshark; do
+    getent group "$group" >/dev/null || groupadd "$group"
+done
+usermod -aG libvirt,kvm,wireshark "$ACTUAL_USER"
 
-# 3. Configure libvirtd socket permissions
-echo "[*] Configuring libvirtd socket access..."
-sed -i 's/^#unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
-sed -i 's/^#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
+# Make libvirt's legacy socket group access explicit when the config exists.
+if [[ -f /etc/libvirt/libvirtd.conf ]]; then
+    grep -q '^unix_sock_group = "libvirt"' /etc/libvirt/libvirtd.conf || \
+        printf '\nunix_sock_group = "libvirt"\n' >> /etc/libvirt/libvirtd.conf
+    grep -q '^unix_sock_rw_perms = "0770"' /etc/libvirt/libvirtd.conf || \
+        printf 'unix_sock_rw_perms = "0770"\n' >> /etc/libvirt/libvirtd.conf
+fi
 
-# 4. Enable and start virtualization daemons
-echo "[*] Enabling libvirt services..."
 systemctl enable --now libvirtd.service
-systemctl enable --now virtlogd.service
+if systemctl list-unit-files virtlogd.socket >/dev/null 2>&1; then
+    systemctl enable --now virtlogd.socket
+fi
 
-# 5. Enable default NAT virtual network
-echo "[*] Initializing default NAT virtual network..."
-sleep 1
-virsh net-autostart default 2>/dev/null || true
-virsh net-start default 2>/dev/null || true
+# Ensure libvirt's default NAT network exists, is active, and autostarts.
+if ! virsh net-info default >/dev/null 2>&1; then
+    cat > /tmp/libvirt-default.xml <<'EOF'
+<network>
+  <name>default</name>
+  <forward mode='nat'/>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <ip address='192.168.122.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.122.2' end='192.168.122.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+    virsh net-define /tmp/libvirt-default.xml
+    rm -f /tmp/libvirt-default.xml
+fi
+virsh net-autostart default
+if ! virsh net-info default | grep -q '^Active:[[:space:]]*yes'; then
+    virsh net-start default
+fi
 
-# 6. Enable Wireshark capture without root
-if [ -f /usr/bin/dumpcap ]; then
+# Wireshark capture without root.
+if [[ -x /usr/bin/dumpcap ]]; then
     chgrp wireshark /usr/bin/dumpcap
     chmod 750 /usr/bin/dumpcap
-    setcap 'CAP_NET_RAW+eip CAP_NET_ADMIN+eip' /usr/bin/dumpcap 2>/dev/null || true
+    if command -v setcap >/dev/null 2>&1; then
+        setcap 'CAP_NET_RAW+eip CAP_NET_ADMIN+eip' /usr/bin/dumpcap
+    fi
 fi
 
-# 7. Create a helper script for creating isolated virtual switches for multi-VM labs
-mkdir -p /usr/local/bin
-cat << 'EOF' > /usr/local/bin/create-vswitch
-#!/bin/bash
-# Helper to create isolated Linux Bridges for multi-VM routing labs
-# Usage: sudo create-vswitch <bridge_name> (e.g. sudo create-vswitch br-lan1)
-if [ -z "$1" ]; then
+# Idempotent isolated bridge helper. It is intentionally L2-only; give it an IP
+# from the router VM instead of silently turning the host into another router.
+cat > /usr/local/bin/create-vswitch <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+NAME="${1:-}"
+if [[ -z "$NAME" ]]; then
     echo "Usage: sudo create-vswitch <bridge_name>"
-    echo "Example: sudo create-vswitch br-lan1"
     exit 1
 fi
-NAME="$1"
-ip link add name "$NAME" type bridge
+if [[ ! "$NAME" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+    echo "Invalid bridge name: $NAME"
+    exit 1
+fi
+if ip link show "$NAME" >/dev/null 2>&1; then
+    echo "Bridge $NAME already exists."
+else
+    ip link add name "$NAME" type bridge
+fi
 ip link set dev "$NAME" up
-echo "[?] Virtual switch $NAME created and active!"
+echo "Bridge $NAME is up."
 EOF
-chmod +x /usr/local/bin/create-vswitch
+chmod 0755 /usr/local/bin/create-vswitch
 
-echo "[?] KVM, Virt-Manager and Virtual Networking setup completed!"
+log "KVM/libvirt setup complete"
+log "Create isolated VM networks with: sudo create-vswitch br-lan1"

@@ -74,7 +74,7 @@
     },
     "backlight": {
       "label": "",
-      "device": "amdgpu_bl1"
+      "device": "default"
     },
     "notifications": {
       "clear-all-button": true
@@ -83,17 +83,17 @@
       "actions": [
         {
           "label": "󰝟",
-          "command": "amixer set Master toggle"
+          "command": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
         },
         {
           "label": "",
-          "command": "amixer set Capture toggle"
+          "command": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
         },
         {
           "label": "",
           "type": "toggle",
           "command": "bash -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
-          "update-command": "bash -c 'nmcli radio wifi | grep -q enabled && echo true || echo false'"
+          "update-command": "bash -c 'nmcli radio wifi | grep -qi enabled && echo true || echo false'"
         },
         {
           "label": "󰂯",

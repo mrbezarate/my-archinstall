@@ -1,31 +1,27 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=========================================="
-echo " [3/3] Setting up Niri, traits-configs & UI"
-echo "=========================================="
-
-if [ "$EUID" -ne 0 ]; then
-    echo "[!] Please run with sudo or as root"
+if [[ ${EUID} -ne 0 ]]; then
+    echo "[!] Run this script through install.sh or with sudo."
     exit 1
 fi
 
-ACTUAL_USER="${SUDO_USER:-$USER}"
-if [ "$ACTUAL_USER" = "root" ]; then
-    echo "[!] Warning: Script running directly as root. Please specify target username:"
-    read -p "Username: " TARGET_USER
-    ACTUAL_USER="$TARGET_USER"
+ACTUAL_USER="${TARGET_USER:-${SUDO_USER:-}}"
+TARGET_HOME="${TARGET_HOME:-}"
+if [[ -z "$ACTUAL_USER" || "$ACTUAL_USER" == root ]] || ! getent passwd "$ACTUAL_USER" >/dev/null; then
+    echo "[!] Normal target user could not be determined."
+    exit 1
 fi
-
-TARGET_HOME=$(getent passwd "$ACTUAL_USER" | cut -d: -f6)
-echo "[*] Target user: $ACTUAL_USER (Home: $TARGET_HOME)"
-
+[[ -n "$TARGET_HOME" ]] || TARGET_HOME="$(getent passwd "$ACTUAL_USER" | cut -d: -f6)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG_SOURCE="$SCRIPT_DIR/configs"
 
-# 1. Install Audio, Bluetooth, Network, Display Manager & Tools
-echo "[*] Installing desktop essentials..."
+log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
+
+log "Installing desktop/session packages"
 pacman -S --needed --noconfirm \
     pipewire \
+    pipewire-audio \
     pipewire-pulse \
     pipewire-alsa \
     pipewire-jack \
@@ -34,24 +30,26 @@ pacman -S --needed --noconfirm \
     bluez \
     bluez-utils \
     networkmanager \
+    network-manager-applet \
+    nm-connection-editor \
+    power-profiles-daemon \
+    libnotify \
     sddm \
+    polkit \
     qt6-5compat \
     qt6-declarative \
-    qt6-svg
+    qt6-svg \
+    xdg-desktop-portal \
+    xdg-desktop-portal-gtk \
+    xdg-desktop-portal-gnome
 
-# Enable Audio, Bluetooth, Network and SDDM
-systemctl enable --now NetworkManager.service 2>/dev/null || true
-systemctl enable --now bluetooth.service 2>/dev/null || true
-systemctl enable sddm.service 2>/dev/null || true
-
-# 2. Install Niri and Wayland components
-echo "[*] Installing Niri compositor and GUI tools..."
+log "Installing Niri/Wayland UI"
 pacman -S --needed --noconfirm \
     niri \
     xwayland-satellite \
     waybar \
     swaync \
-    rofi-wayland \
+    rofi \
     swaybg \
     hyprlock \
     hypridle \
@@ -63,8 +61,17 @@ pacman -S --needed --noconfirm \
     thunar \
     thunar-archive-plugin \
     file-roller \
+    firefox \
+    neovim \
+    htop \
+    powertop \
+    xdg-user-dirs \
+    nwg-look \
     mate-polkit \
     fastfetch \
+    jq \
+    curl \
+    git \
     starship \
     xcursor-themes \
     ttf-jetbrains-mono-nerd \
@@ -73,66 +80,130 @@ pacman -S --needed --noconfirm \
     noto-fonts-emoji \
     ttf-font-awesome
 
-# 3. Install YAY (AUR Helper) if missing
-if ! sudo -u "$ACTUAL_USER" which yay &>/dev/null; then
-    echo "[*] Installing 'yay' AUR helper..."
-    rm -rf /tmp/yay-bin
-    sudo -u "$ACTUAL_USER" git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
-    cd /tmp/yay-bin
-    sudo -u "$ACTUAL_USER" makepkg -si --noconfirm
-    cd "$SCRIPT_DIR"
-    rm -rf /tmp/yay-bin
+systemctl enable --now NetworkManager.service
+systemctl enable --now bluetooth.service
+systemctl enable --now power-profiles-daemon.service
+systemctl enable sddm.service
+
+# The ASUS Linux project currently recommends its official OGC repository for
+# packaged ASUS utilities rather than relying on an AUR build for core daemons.
+install_asus_repo() {
+    local key='8F654886F17D497FEFE3DB448B15A6B0E9A3FA35'
+    pacman-key --init
+
+    if ! pacman-key --list-keys "$key" >/dev/null 2>&1; then
+        log "Importing the official ASUS Linux/OGC repository key"
+        pacman-key --recv-key "$key"
+        pacman-key --lsign-key "$key"
+    fi
+
+    if ! grep -q '^\[ogc\]$' /etc/pacman.conf; then
+        log "Adding the official ASUS Linux/OGC repository"
+        cat >> /etc/pacman.conf <<'EOF'
+
+[ogc]
+Server = https://pacman.opengamingcollective.org
+EOF
+    elif ! awk '/^\[ogc\]$/{f=1; next} /^\[/{f=0} f && /^Server[[:space:]]*=/{ok=1} END{exit ok?0:1}' /etc/pacman.conf; then
+        log "Repairing the existing [ogc] repository section"
+        awk '
+            /^\[ogc\]$/ { print; print "Server = https://pacman.opengamingcollective.org"; inserted=1; next }
+            /^\[/ && inserted { print; inserted=0; next }
+            { print }
+            END { if (!inserted) exit 0 }
+        ' /etc/pacman.conf > /tmp/pacman.conf.fixed
+        mv /tmp/pacman.conf.fixed /etc/pacman.conf
+    fi
+
+    pacman -Syu --needed --noconfirm
+}
+
+if install_asus_repo; then
+    log "Installing ASUS ROG control tools"
+    pacman -S --needed --noconfirm asusctl rog-control-center
+    if systemctl list-unit-files asusd.service | grep -q '^asusd.service'; then
+        systemctl enable --now asusd.service
+    fi
+else
+    echo "[!] Official ASUS repository setup failed; ASUS utilities are NOT silently skipped."
+    echo "[!] Re-run after fixing pacman-key/network and the rest of the setup remains usable."
+    exit 1
 fi
 
-# 4. Install AUR Packages (ASUS ROG controls & Quickshell)
-echo "[*] Installing ASUS ROG utilities from AUR..."
-sudo -u "$ACTUAL_USER" yay -S --needed --noconfirm \
-    asusctl \
-    supergfxctl \
-    future-dark-cursors 2>/dev/null || true
-
-systemctl enable --now supergfxd.service 2>/dev/null || true
-systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
-
-# 5. Deploy configs to user's .config directory
-echo "[*] Deploying configs to $TARGET_HOME/.config..."
-mkdir -p "$TARGET_HOME/.config"
-
-CONFIG_SOURCE="$SCRIPT_DIR/configs"
-if [ ! -d "$CONFIG_SOURCE" ]; then
-    echo "[*] Fetching traits-arch/configs..."
-    rm -rf /tmp/traits-configs
-    git clone --depth 1 https://github.com/traits-arch/configs.git /tmp/traits-configs
-    CONFIG_SOURCE="/tmp/traits-configs"
+# supergfxctl is currently being phased out. It is not needed for ordinary Wayland
+# multi-GPU use; install it only when explicitly requested (e.g. VFIO experiments).
+if [[ "${INSTALL_SUPERGFXCTL:-0}" == 1 ]]; then
+    log "Installing explicitly requested supergfxctl"
+    pacman -S --needed --noconfirm supergfxctl
+    systemctl enable --now supergfxd.service
 fi
 
-cp -r "$CONFIG_SOURCE"/niri "$TARGET_HOME/.config/"
-cp -r "$CONFIG_SOURCE"/waybar "$TARGET_HOME/.config/"
-cp -r "$CONFIG_SOURCE"/swaync "$TARGET_HOME/.config/"
-cp -r "$CONFIG_SOURCE"/rofi "$TARGET_HOME/.config/"
-cp -r "$CONFIG_SOURCE"/alacritty "$TARGET_HOME/.config/"
-cp -r "$CONFIG_SOURCE"/fastfetch "$TARGET_HOME/.config/"
-cp "$CONFIG_SOURCE"/starship.toml "$TARGET_HOME/.config/"
+log "Deploying configuration to $TARGET_HOME/.config"
+install -d -o "$ACTUAL_USER" -g "$ACTUAL_USER" "$TARGET_HOME/.config"
+cp -a "$CONFIG_SOURCE"/niri "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/waybar "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/swaync "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/rofi "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/alacritty "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/fastfetch "$TARGET_HOME/.config/"
+cp -a "$CONFIG_SOURCE"/starship.toml "$TARGET_HOME/.config/"
 
-# 6. Setup Wallpaper
-echo "[*] Setting up aesthetic wallpaper..."
-mkdir -p "$TARGET_HOME/Pictures/Wallpapers"
-if [ -f "$SCRIPT_DIR/assets/wallpaper.png" ]; then
-    cp "$SCRIPT_DIR/assets/wallpaper.png" "$TARGET_HOME/Pictures/Wallpapers/wallpaper.png"
-elif [ -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" ]; then
-    cp "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" "$TARGET_HOME/Pictures/Wallpapers/wallpaper.png"
+# Import the bundled SF Pro / JetBrains fonts.
+FONT_HOME="$TARGET_HOME/.local/share/fonts"
+install -d "$FONT_HOME"
+find "$CONFIG_SOURCE/hypr/Fonts" -type f \
+    \( -iname '*.otf' -o -iname '*.ttf' \) -exec cp -f {} "$FONT_HOME/" \;
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME/.local/share/fonts"
+sudo -u "$ACTUAL_USER" fc-cache -f >/dev/null 2>&1 || true
+
+log "Installing wallpaper"
+WALLPAPER_DIR="$TARGET_HOME/Pictures/Wallpapers"
+install -d "$WALLPAPER_DIR"
+if [[ -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then
+    cp -f "$SCRIPT_DIR/assets/wallpaper.png" "$WALLPAPER_DIR/wallpaper.png"
+elif [[ -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" ]]; then
+    cp -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" "$WALLPAPER_DIR/wallpaper.png"
 fi
 
-# 7. Fix hardcoded paths in Niri & Rofi configs
-echo "[*] Adapting config paths for $ACTUAL_USER..."
-sed -i "s|/home/xal|$TARGET_HOME|g" "$TARGET_HOME/.config/niri/config.kdl"
-sed -i "s|/home/xal/Downloads/wallhaven-0we3m7_1920x1200.png|$TARGET_HOME/Pictures/Wallpapers/wallpaper.png|g" "$TARGET_HOME/.config/niri/config.kdl"
+# Adapt all text configs to the actual account. In particular this fixes the old
+# /home/xal references in niri, waybar, rofi, and fastfetch.
+while IFS= read -r -d '' file; do
+    sed -i \
+        -e "s|/home/xal|$TARGET_HOME|g" \
+        -e 's|\.config/rofi/applets|.config/rofi/launchers/applets|g' \
+        "$file"
+done < <(find "$TARGET_HOME/.config" -type f \
+    \( -name '*.kdl' -o -name '*.json' -o -name '*.jsonc' -o -name '*.rasi' \
+       -o -name '*.sh' -o -name '*.bash' -o -name '*.css' -o -name '*.toml' -o -name '*.conf' \) -print0)
 
-# Fix rofi scripts permissions and paths
-find "$TARGET_HOME/.config/rofi" -type f -name "*.sh" -exec chmod +x {} +
-find "$TARGET_HOME/.config/rofi" -type f -name "*.sh" -exec sed -i "s|/home/xal|$TARGET_HOME|g" {} +
+# Ensure the wallpaper path is correct even if an old config had a different file.
+if [[ -f "$TARGET_HOME/.config/niri/config.kdl" && -f "$WALLPAPER_DIR/wallpaper.png" ]]; then
+    sed -i "s|/Downloads/wallhaven-0we3m7_1920x1200.png|/Pictures/Wallpapers/wallpaper.png|g" \
+        "$TARGET_HOME/.config/niri/config.kdl"
+fi
 
-# 8. Set permissions
+# Remove stale references to external ~/scripts files from the archived theme.
+# These files are not part of this repository and made several Waybar clicks dead.
+WAYBAR="$TARGET_HOME/.config/waybar/modules.json"
+if [[ -f "$WAYBAR" ]]; then
+    sed -i \
+        '/"on-scroll-right": "~\/scripts\/wall\.sh"/d' \
+        '/"on-click-right": "~\/scripts\/cycle_tuned\.sh"/d' \
+        '/"on-click-right": "~\/scripts\/mono\.sh"/d' \
+        '/"on-scroll-up": "~\/scripts\/planner\.sh up"/d' \
+        '/"on-scroll-down": "~\/scripts\/planner\.sh down"/d' \
+        "$WAYBAR"
+fi
+
+# Fix Niri startup to use the real wallpaper path and the current native rofi config.
+if [[ -f "$TARGET_HOME/.config/niri/config.kdl" ]]; then
+    sed -i "s|/Pictures/Wallpapers/wallpaper.png|$WALLPAPER_DIR/wallpaper.png|g" \
+        "$TARGET_HOME/.config/niri/config.kdl"
+fi
+
+# Sanitize ownership/permissions for all deployed user configs.
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME/.config" "$TARGET_HOME/Pictures"
+find "$TARGET_HOME/.config" -type f -name '*.sh' -exec chmod 0755 {} +
 
-echo "[?] Niri and traits-configs environment setup completed!"
+log "Niri/UI setup complete"
+log "Use 'systemctl status sddm' and select the Niri session after reboot."

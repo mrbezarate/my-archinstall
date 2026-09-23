@@ -1,54 +1,71 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=========================================="
-echo " [1/3] Setting up NVIDIA RTX 4060 & Wayland"
-echo "=========================================="
-
-if [ "$EUID" -ne 0 ]; then
-    echo "[!] Please run with sudo or as root"
+if [[ ${EUID} -ne 0 ]]; then
+    echo "[!] Run this script through install.sh or with sudo."
     exit 1
 fi
 
-# 1. Enable multilib repository if not already enabled
-if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-    echo "[*] Enabling multilib repository in /etc/pacman.conf..."
-    cat << 'EOF' >> /etc/pacman.conf
+log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
-[multilib]
-Include = /etc/pacman.d/mirrorlist
-EOF
-    pacman -Sy
-fi
+log "Configuring NVIDIA RTX 4060 for Wayland"
 
-# 2. Install Linux Kernel Headers & NVIDIA Drivers
-echo "[*] Installing NVIDIA drivers and kernel modules..."
+# nvidia-dkms was removed from current Arch packaging. For RTX 4060/Turing+
+# use NVIDIA's open kernel modules through DKMS.
+log "Installing NVIDIA userspace + open DKMS driver"
 pacman -S --needed --noconfirm \
-    linux-headers \
-    nvidia-dkms \
+    nvidia-open-dkms \
     nvidia-utils \
     lib32-nvidia-utils \
     nvidia-settings \
+    nvidia-prime \
     egl-wayland \
     opencl-nvidia
 
-# 3. Configure DRM kernel modesetting (Required for Wayland)
-echo "[*] Configuring nvidia-drm modeset..."
-cat << 'EOF' > /etc/modprobe.d/nvidia.conf
-options nvidia_drm modeset=1 fbdev=1
+# Install headers for every stock Arch kernel that is actually installed.
+header_pkgs=()
+while IFS= read -r kernel_pkg; do
+    case "$kernel_pkg" in
+        linux)     header_pkgs+=(linux-headers) ;;
+        linux-lts) header_pkgs+=(linux-lts-headers) ;;
+        linux-zen) header_pkgs+=(linux-zen-headers) ;;
+        linux-hardened) header_pkgs+=(linux-hardened-headers) ;;
+    esac
+done < <(pacman -Qq | grep -E '^linux(-lts|-zen|-hardened)?$' || true)
+
+if ((${#header_pkgs[@]})); then
+    log "Installing matching kernel headers: ${header_pkgs[*]}"
+    pacman -S --needed --noconfirm "${header_pkgs[@]}"
+else
+    log "No stock Arch kernel package was detected; checking /usr/lib/modules instead."
+fi
+
+# Persistent DRM modeset. Modern NVIDIA drivers may already default to this,
+# but keeping it explicit avoids relying on driver defaults for Wayland.
+install -d -m 0755 /etc/modprobe.d
+cat > /etc/modprobe.d/nvidia.conf <<'EOF'
+options nvidia_drm modeset=1
 options nvidia NVreg_PreserveVideoMemoryAllocations=1
 EOF
 
-# 4. Set global Wayland environment variables
-echo "[*] Setting Wayland environment variables in /etc/environment..."
-grep -q "LIBVA_DRIVER_NAME=nvidia" /etc/environment 2>/dev/null || echo "LIBVA_DRIVER_NAME=nvidia" >> /etc/environment
-grep -q "GBM_BACKEND=nvidia-drm" /etc/environment 2>/dev/null || echo "GBM_BACKEND=nvidia-drm" >> /etc/environment
-grep -q "__GLX_VENDOR_LIBRARY_NAME=nvidia" /etc/environment 2>/dev/null || echo "__GLX_VENDOR_LIBRARY_NAME=nvidia" >> /etc/environment
-grep -q "NVD_BACKEND=direct" /etc/environment 2>/dev/null || echo "NVD_BACKEND=direct" >> /etc/environment
-grep -q "ELECTRON_OZONE_PLATFORM_HINT=auto" /etc/environment 2>/dev/null || echo "ELECTRON_OZONE_PLATFORM_HINT=auto" >> /etc/environment
+# The old installer exported several NVIDIA variables globally in /etc/environment.
+# They can interfere with Intel/iGPU apps on a hybrid laptop, so we deliberately do
+# not add them globally. Use prime-run for applications that need the RTX 4060.
 
-# 5. Enable NVIDIA systemd power management services
-echo "[*] Enabling NVIDIA power management services..."
-systemctl enable nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service 2>/dev/null || true
+if command -v dkms >/dev/null 2>&1; then
+    log "Building NVIDIA DKMS modules"
+    dkms autoinstall
+fi
 
-echo "[?] NVIDIA setup completed successfully!"
+if command -v mkinitcpio >/dev/null 2>&1; then
+    log "Regenerating initramfs"
+    mkinitcpio -P
+fi
+
+for unit in nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service; do
+    if systemctl list-unit-files "$unit" >/dev/null 2>&1 && systemctl list-unit-files "$unit" | grep -q "$unit"; then
+        systemctl enable "$unit" || true
+    fi
+done
+
+log "NVIDIA setup complete. Verify with: nvidia-smi && dkms status"

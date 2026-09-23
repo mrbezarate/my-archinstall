@@ -8,12 +8,11 @@
 hl.on("hyprland.start", function ()
     hl.exec_cmd("waybar")
     hl.exec_cmd("swaync")
-    hl.exec_cmd("awww-daemon")
+    hl.exec_cmd("swaybg -m fill -i ~/Pictures/Wallpapers/wallpaper.png")
+    hl.exec_cmd("/usr/lib/mate-polkit/polkit-mate-authentication-agent-1 || /usr/libexec/polkit-mate-authentication-agent-1")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("bluetoothctl power on")
     hl.exec_cmd("~/.config/hypr/scripts/upbat.sh")
-    
-
 end)

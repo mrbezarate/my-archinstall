@@ -117,16 +117,37 @@ systemctl enable --now bluetooth.service 2>/dev/null || true
 systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
 systemctl enable sddm.service 2>/dev/null || true
 
-log "Configuring SDDM Display Manager (Default session: Hyprland, cursor: visible)"
+log "Configuring SDDM Display Manager (Default session: Hyprland, aesthetic theme)"
 install -d -m 0755 /etc/sddm.conf.d
-cat > /etc/sddm.conf.d/10-session.conf <<'EOF'
+
+# Install modern aesthetic SDDM theme (sddm-astronaut-theme)
+if [[ ! -d /usr/share/sddm/themes/sddm-astronaut-theme ]]; then
+    log "Installing aesthetic SDDM theme (astronaut)..."
+    git clone -b master --depth 1 https://github.com/keyitdev/sddm-astronaut-theme.git /usr/share/sddm/themes/sddm-astronaut-theme 2>/dev/null || true
+fi
+
+if [[ -d /usr/share/sddm/themes/sddm-astronaut-theme ]]; then
+    if [[ -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then
+        cp -f "$SCRIPT_DIR/assets/wallpaper.png" /usr/share/sddm/themes/sddm-astronaut-theme/Backgrounds/wallpaper.png 2>/dev/null || true
+        sed -i 's|Background=.*|Background="Backgrounds/wallpaper.png"|' /usr/share/sddm/themes/sddm-astronaut-theme/metadata.desktop 2>/dev/null || true
+    fi
+    cat > /etc/sddm.conf.d/10-session.conf <<'EOF'
 [Theme]
-Current=breeze
+Current=sddm-astronaut-theme
 CursorTheme=breeze_cursors
 
 [Users]
 DefaultSession=hyprland.desktop
 EOF
+else
+    cat > /etc/sddm.conf.d/10-session.conf <<'EOF'
+[Theme]
+CursorTheme=breeze_cursors
+
+[Users]
+DefaultSession=hyprland.desktop
+EOF
+fi
 
 # If Breeze theme is available, use our beautiful wallpaper in SDDM login screen
 if [[ -d /usr/share/sddm/themes/breeze && -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then

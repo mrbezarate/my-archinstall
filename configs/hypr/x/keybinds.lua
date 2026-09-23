@@ -13,7 +13,7 @@ local terminal    = "kitty"
 local fileManager = "thunar"
 local menu        = "pkill rofi || rofi -show drun -matching fuzzy"
 local mainMod     = "SUPER" -- Sets "Windows" key as main modifier
-local browser    = "__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia firefox"
+local browser    = "firefox"
 
 
 ---------------------

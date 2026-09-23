@@ -98,7 +98,7 @@ pacman_install \
     noto-fonts \
     noto-fonts-cjk \
     noto-fonts-emoji \
-    ttf-font-awesome
+    woff2-font-awesome
 
 systemctl enable --now NetworkManager.service 2>/dev/null || true
 systemctl enable --now bluetooth.service 2>/dev/null || true
@@ -124,32 +124,32 @@ fi
 # ASUS tools (asusctl): attempt official repository or AUR fallback without aborting on network errors
 install_asus_tools() {
     log "Configuring ASUS ROG utilities..."
-    local key='8F654886F17D497FEFE3DB448B15A6B0E9A3FA35'
     pacman-key --init 2>/dev/null || true
     
-    if pacman-key --recv-key "$key" 2>/dev/null && pacman-key --lsign-key "$key" 2>/dev/null; then
-        if ! grep -q '^\[ogc\]$' /etc/pacman.conf; then
-            cat >> /etc/pacman.conf <<'EOF'
+    # Import and sign both official ASUS OGC keys
+    local keys=('8F654886F17D497FEFE3DB448B15A6B0E9A3FA35' 'EE2BAD4D46522D3D15BF4849B51CCBABCFF928FA')
+    for k in "${keys[@]}"; do
+        pacman-key --recv-key "$k" 2>/dev/null || true
+        pacman-key --lsign-key "$k" 2>/dev/null || true
+    done
+
+    if ! grep -q '^\[ogc\]$' /etc/pacman.conf; then
+        cat >> /etc/pacman.conf <<'EOF'
 
 [ogc]
 Server = https://pacman.opengamingcollective.org
 EOF
-        fi
-        pacman -Sy --needed --noconfirm asusctl rog-control-center 2>/dev/null || true
-    else
-        log "Warning: ASUS OGC key import skipped; you can install asusctl later from AUR."
     fi
-    
-    if systemctl list-unit-files asusd.service 2>/dev/null | grep -q '^asusd.service'; then
-        systemctl enable asusd.service 2>/dev/null || true
-    fi
+    pacman -Sy --needed --noconfirm asusctl rog-control-center 2>/dev/null || true
 }
 install_asus_tools || true
 
 log "Deploying configuration to $TARGET_HOME/.config"
 install -d -o "$ACTUAL_USER" -g "$ACTUAL_USER" "$TARGET_HOME/.config"
 
-cp -a "$CONFIG_SOURCE"/niri "$TARGET_HOME/.config/"
+if [[ -d "$CONFIG_SOURCE/niri" ]]; then
+    cp -a "$CONFIG_SOURCE"/niri "$TARGET_HOME/.config/"
+fi
 cp -a "$CONFIG_SOURCE"/waybar "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/swaync "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/rofi "$TARGET_HOME/.config/"

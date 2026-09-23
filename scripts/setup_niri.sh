@@ -87,6 +87,10 @@ pacman_install \
     nwg-look \
     mate-polkit \
     fastfetch \
+    kitty \
+    wlogout \
+    lua \
+    cava \
     jq \
     curl \
     git \
@@ -155,13 +159,23 @@ cp -a "$CONFIG_SOURCE"/alacritty "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/fastfetch "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/starship.toml "$TARGET_HOME/.config/"
 
-# Also deploy hyprlock and hypridle configs
+# Also deploy hyprland, hyprlock, and hypridle configs (full xarefin rice)
 if [[ -d "$CONFIG_SOURCE/hypr" ]]; then
     cp -a "$CONFIG_SOURCE"/hypr "$TARGET_HOME/.config/"
-    # Fix lock command in hypridle so lock works reliably
     if [[ -f "$TARGET_HOME/.config/hypr/hypridle.conf" ]]; then
         sed -i 's|pidof hyprlock|pidof hyprlock \|\| hyprlock|g' "$TARGET_HOME/.config/hypr/hypridle.conf"
     fi
+fi
+
+# Deploy wlogout, wlogout-img and kitty
+if [[ -d "$CONFIG_SOURCE/wlogout" ]]; then
+    cp -a "$CONFIG_SOURCE"/wlogout "$TARGET_HOME/.config/"
+fi
+if [[ -d "$CONFIG_SOURCE/wlogout-img" ]]; then
+    cp -a "$CONFIG_SOURCE"/wlogout-img "$TARGET_HOME/.config/"
+fi
+if [[ -d "$CONFIG_SOURCE/kitty" ]]; then
+    cp -a "$CONFIG_SOURCE"/kitty "$TARGET_HOME/.config/"
 fi
 
 # Import bundled fonts
@@ -181,6 +195,10 @@ if [[ -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then
     cp -f "$SCRIPT_DIR/assets/wallpaper.png" "$WALLPAPER_DIR/wallpaper.png"
 elif [[ -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" ]]; then
     cp -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" "$WALLPAPER_DIR/wallpaper.png"
+fi
+
+if [[ -d "$SCRIPT_DIR/assets/wallpapers" ]]; then
+    cp -a "$SCRIPT_DIR/assets/wallpapers"/* "$WALLPAPER_DIR/" 2>/dev/null || true
 fi
 
 # Adapt all text configs: replace /home/xal with target home
@@ -222,7 +240,7 @@ fi
 
 # Sanitize ownership and permissions across entire user home directory
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME"
-find "$TARGET_HOME/.config" -type f -name '*.sh' -exec chmod 0755 {} +
+find "$TARGET_HOME/.config" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod 0755 {} +
 chmod 0700 "$TARGET_HOME"
 
 log "Niri/UI setup complete."

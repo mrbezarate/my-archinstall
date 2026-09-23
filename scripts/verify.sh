@@ -177,6 +177,18 @@ else
     report_fail "Niri config ($HOME_DIR/.config/niri/config.kdl) is MISSING!"
 fi
 
+if [[ -f "$HOME_DIR/.config/hypr/hyprland.conf" ]]; then
+    report_ok "Hyprland config ($HOME_DIR/.config/hypr/hyprland.conf) deployed"
+else
+    report_warn "Hyprland config ($HOME_DIR/.config/hypr/hyprland.conf) is missing"
+fi
+
+if [[ -d "$HOME_DIR/.local" ]] && [[ "$(stat -c '%U' "$HOME_DIR/.local" 2>/dev/null)" == "root" ]]; then
+    report_fail "Home subfolder $HOME_DIR/.local is owned by root! (Causes login kickback)"
+else
+    report_ok "User home directory permissions are clean (owned by $USER_NAME)"
+fi
+
 if [[ -d "$HOME_DIR/.config/waybar" && -f "$HOME_DIR/.config/waybar/config.jsonc" ]]; then
     report_ok "Waybar status bar config deployed"
 else

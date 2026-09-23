@@ -220,8 +220,9 @@ if [[ -f "$BASHRC" ]] && ! grep -q 'starship init bash' "$BASHRC"; then
     echo 'eval "$(starship init bash)"' >> "$BASHRC"
 fi
 
-# Sanitize ownership and permissions
-chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME/.config" "$TARGET_HOME/Pictures"
+# Sanitize ownership and permissions across entire user home directory
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME"
 find "$TARGET_HOME/.config" -type f -name '*.sh' -exec chmod 0755 {} +
+chmod 0700 "$TARGET_HOME"
 
 log "Niri/UI setup complete."

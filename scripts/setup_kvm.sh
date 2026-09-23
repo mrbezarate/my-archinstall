@@ -14,9 +14,21 @@ fi
 
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
+pacman_install() {
+    local max=3
+    for ((i=1; i<=max; i++)); do
+        if pacman -S --needed --noconfirm "$@"; then
+            return 0
+        fi
+        log "pacman download attempt $i failed. Retrying in 2s..."
+        sleep 2
+    done
+    return 1
+}
+
 log "Installing KVM/QEMU/libvirt and network lab tools"
 # NOTE: ebtables is intentionally excluded because iptables-nft already provides and conflicts with it.
-pacman -S --needed --noconfirm \
+pacman_install \
     qemu-desktop \
     libvirt \
     virt-manager \

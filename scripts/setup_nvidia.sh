@@ -8,6 +8,18 @@ fi
 
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
+pacman_install() {
+    local max=3
+    for ((i=1; i<=max; i++)); do
+        if pacman -S --needed --noconfirm "$@"; then
+            return 0
+        fi
+        log "pacman download attempt $i failed. Retrying in 2s..."
+        sleep 2
+    done
+    return 1
+}
+
 log "Configuring NVIDIA RTX 4060 for Wayland"
 
 # Install matching kernel headers for installed kernels
@@ -23,12 +35,11 @@ done < <(pacman -Qq | grep -E '^linux(-lts|-zen|-hardened)?$' || true)
 
 if ((${#header_pkgs[@]})); then
     log "Installing matching kernel headers: ${header_pkgs[*]}"
-    pacman -S --needed --noconfirm "${header_pkgs[@]}"
+    pacman_install "${header_pkgs[@]}"
 fi
 
 log "Installing NVIDIA userspace + open DKMS driver"
-# Install nvidia packages; if lib32-nvidia-utils is temporarily unavailable due to mirror sync, don't crash
-pacman -S --needed --noconfirm \
+pacman_install \
     nvidia-open-dkms \
     nvidia-utils \
     nvidia-settings \
@@ -37,7 +48,7 @@ pacman -S --needed --noconfirm \
     opencl-nvidia
 
 if pacman -Si lib32-nvidia-utils >/dev/null 2>&1; then
-    pacman -S --needed --noconfirm lib32-nvidia-utils || true
+    pacman_install lib32-nvidia-utils || true
 fi
 
 # Persistent DRM modeset for Wayland on modern NVIDIA

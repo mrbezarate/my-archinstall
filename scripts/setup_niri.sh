@@ -18,8 +18,20 @@ CONFIG_SOURCE="$SCRIPT_DIR/configs"
 
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
+pacman_install() {
+    local max=3
+    for ((i=1; i<=max; i++)); do
+        if pacman -S --needed --noconfirm "$@"; then
+            return 0
+        fi
+        log "pacman download attempt $i failed. Retrying in 2s..."
+        sleep 2
+    done
+    return 1
+}
+
 log "Installing desktop/session packages"
-pacman -S --needed --noconfirm \
+pacman_install \
     pipewire \
     pipewire-audio \
     pipewire-pulse \
@@ -44,7 +56,7 @@ pacman -S --needed --noconfirm \
     xdg-desktop-portal-gnome
 
 log "Installing Niri/Wayland UI"
-pacman -S --needed --noconfirm \
+pacman_install \
     niri \
     xwayland-satellite \
     waybar \

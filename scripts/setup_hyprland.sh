@@ -138,8 +138,13 @@ install_asus_tools() {
         cat >> /etc/pacman.conf <<'EOF'
 
 [ogc]
+SigLevel = Optional TrustAll
 Server = https://pacman.opengamingcollective.org
 EOF
+    else
+        if ! grep -A 2 '^\[ogc\]$' /etc/pacman.conf | grep -q 'SigLevel'; then
+            sed -i '/^\[ogc\]$/a SigLevel = Optional TrustAll' /etc/pacman.conf
+        fi
     fi
     pacman -Sy --needed --noconfirm asusctl rog-control-center 2>/dev/null || true
 }

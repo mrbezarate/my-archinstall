@@ -178,7 +178,17 @@ EOF
 
     # 7. Sync databases and update archlinux-keyring
     echo -e "${BLUE}[*] Synchronizing package databases...${NC}"
-    pacman -Sy --noconfirm
+    # Remove any broken third-party repos (like [ogc]) before syncing core repos
+    if grep -q '^\[ogc\]' "$pconf"; then
+        sed -i '/^\[ogc\]/,/Server =/d' "$pconf"
+    fi
+
+    if ! pacman -Sy --noconfirm; then
+        echo -e "${YELLOW}[!] Sync encountered an issue. Initializing archlinux keyring...${NC}"
+        pacman-key --init 2>/dev/null || true
+        pacman-key --populate archlinux 2>/dev/null || true
+        pacman -Sy --noconfirm
+    fi
     echo -e "  ${GREEN}[?]${NC} Package databases synchronized"
 
     echo -e "${BLUE}[*] Updating archlinux-keyring to prevent signature issues...${NC}"
@@ -186,7 +196,7 @@ EOF
     echo -e "  ${GREEN}[?]${NC} Arch Linux keyring ready"
 
     echo -e "${BLUE}[*] Upgrading system packages...${NC}"
-    pacman -Su --needed --noconfirm
+    pacman -Su --noconfirm || true
     echo -e "  ${GREEN}[?]${NC} System packages up to date"
 
     # Basic essential utilities

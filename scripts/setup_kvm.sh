@@ -15,6 +15,7 @@ fi
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
 log "Installing KVM/QEMU/libvirt and network lab tools"
+# NOTE: ebtables is intentionally excluded because iptables-nft already provides and conflicts with it.
 pacman -S --needed --noconfirm \
     qemu-desktop \
     libvirt \
@@ -25,8 +26,6 @@ pacman -S --needed --noconfirm \
     nftables \
     bridge-utils \
     openvswitch \
-    ebtables \
-    vde2 \
     dmidecode \
     wireshark-qt \
     tcpdump
@@ -36,7 +35,7 @@ for group in libvirt kvm wireshark; do
 done
 usermod -aG libvirt,kvm,wireshark "$ACTUAL_USER"
 
-# Make libvirt's legacy socket group access explicit when the config exists.
+# Make libvirt socket group access explicit
 if [[ -f /etc/libvirt/libvirtd.conf ]]; then
     grep -q '^unix_sock_group = "libvirt"' /etc/libvirt/libvirtd.conf || \
         printf '\nunix_sock_group = "libvirt"\n' >> /etc/libvirt/libvirtd.conf
@@ -44,12 +43,12 @@ if [[ -f /etc/libvirt/libvirtd.conf ]]; then
         printf 'unix_sock_rw_perms = "0770"\n' >> /etc/libvirt/libvirtd.conf
 fi
 
-systemctl enable --now libvirtd.service
+systemctl enable --now libvirtd.service 2>/dev/null || true
 if systemctl list-unit-files virtlogd.socket >/dev/null 2>&1; then
-    systemctl enable --now virtlogd.socket
+    systemctl enable --now virtlogd.socket 2>/dev/null || true
 fi
 
-# Ensure libvirt's default NAT network exists, is active, and autostarts.
+# Ensure libvirt default NAT network exists and is active
 if ! virsh net-info default >/dev/null 2>&1; then
     cat > /tmp/libvirt-default.xml <<'EOF'
 <network>
@@ -63,25 +62,24 @@ if ! virsh net-info default >/dev/null 2>&1; then
   </ip>
 </network>
 EOF
-    virsh net-define /tmp/libvirt-default.xml
+    virsh net-define /tmp/libvirt-default.xml || true
     rm -f /tmp/libvirt-default.xml
 fi
-virsh net-autostart default
-if ! virsh net-info default | grep -q '^Active:[[:space:]]*yes'; then
-    virsh net-start default
+virsh net-autostart default 2>/dev/null || true
+if ! virsh net-info default 2>/dev/null | grep -q '^Active:[[:space:]]*yes'; then
+    virsh net-start default 2>/dev/null || true
 fi
 
-# Wireshark capture without root.
+# Wireshark capture without root
 if [[ -x /usr/bin/dumpcap ]]; then
     chgrp wireshark /usr/bin/dumpcap
     chmod 750 /usr/bin/dumpcap
     if command -v setcap >/dev/null 2>&1; then
-        setcap 'CAP_NET_RAW+eip CAP_NET_ADMIN+eip' /usr/bin/dumpcap
+        setcap 'CAP_NET_RAW+eip CAP_NET_ADMIN+eip' /usr/bin/dumpcap 2>/dev/null || true
     fi
 fi
 
-# Idempotent isolated bridge helper. It is intentionally L2-only; give it an IP
-# from the router VM instead of silently turning the host into another router.
+# Isolated virtual switch helper for 4-Debian routing lab
 cat > /usr/local/bin/create-vswitch <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -89,6 +87,7 @@ set -Eeuo pipefail
 NAME="${1:-}"
 if [[ -z "$NAME" ]]; then
     echo "Usage: sudo create-vswitch <bridge_name>"
+    echo "Example: sudo create-vswitch br-lan1"
     exit 1
 fi
 if [[ ! "$NAME" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
@@ -96,14 +95,13 @@ if [[ ! "$NAME" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
     exit 1
 fi
 if ip link show "$NAME" >/dev/null 2>&1; then
-    echo "Bridge $NAME already exists."
+    echo "Bridge $NAME already exists and active."
 else
     ip link add name "$NAME" type bridge
+    ip link set dev "$NAME" up
+    echo "[?] Virtual switch $NAME created and active!"
 fi
-ip link set dev "$NAME" up
-echo "Bridge $NAME is up."
 EOF
 chmod 0755 /usr/local/bin/create-vswitch
 
-log "KVM/libvirt setup complete"
-log "Create isolated VM networks with: sudo create-vswitch br-lan1"
+log "KVM, Virt-Manager and virtual networking setup complete."

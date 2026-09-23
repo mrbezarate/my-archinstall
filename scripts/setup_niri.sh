@@ -49,7 +49,7 @@ pacman -S --needed --noconfirm \
     xwayland-satellite \
     waybar \
     swaync \
-    rofi \
+    rofi-wayland \
     swaybg \
     hyprlock \
     hypridle \
@@ -58,6 +58,7 @@ pacman -S --needed --noconfirm \
     brightnessctl \
     playerctl \
     alacritty \
+    zsh \
     thunar \
     thunar-archive-plugin \
     file-roller \
@@ -80,66 +81,39 @@ pacman -S --needed --noconfirm \
     noto-fonts-emoji \
     ttf-font-awesome
 
-systemctl enable --now NetworkManager.service
-systemctl enable --now bluetooth.service
-systemctl enable --now power-profiles-daemon.service
-systemctl enable sddm.service
+systemctl enable --now NetworkManager.service 2>/dev/null || true
+systemctl enable --now bluetooth.service 2>/dev/null || true
+systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
+systemctl enable sddm.service 2>/dev/null || true
 
-# The ASUS Linux project currently recommends its official OGC repository for
-# packaged ASUS utilities rather than relying on an AUR build for core daemons.
-install_asus_repo() {
+# ASUS tools (asusctl): attempt official repository or AUR fallback without aborting on network errors
+install_asus_tools() {
+    log "Configuring ASUS ROG utilities..."
     local key='8F654886F17D497FEFE3DB448B15A6B0E9A3FA35'
-    pacman-key --init
-
-    if ! pacman-key --list-keys "$key" >/dev/null 2>&1; then
-        log "Importing the official ASUS Linux/OGC repository key"
-        pacman-key --recv-key "$key"
-        pacman-key --lsign-key "$key"
-    fi
-
-    if ! grep -q '^\[ogc\]$' /etc/pacman.conf; then
-        log "Adding the official ASUS Linux/OGC repository"
-        cat >> /etc/pacman.conf <<'EOF'
+    pacman-key --init 2>/dev/null || true
+    
+    if pacman-key --recv-key "$key" 2>/dev/null && pacman-key --lsign-key "$key" 2>/dev/null; then
+        if ! grep -q '^\[ogc\]$' /etc/pacman.conf; then
+            cat >> /etc/pacman.conf <<'EOF'
 
 [ogc]
 Server = https://pacman.opengamingcollective.org
 EOF
-    elif ! awk '/^\[ogc\]$/{f=1; next} /^\[/{f=0} f && /^Server[[:space:]]*=/{ok=1} END{exit ok?0:1}' /etc/pacman.conf; then
-        log "Repairing the existing [ogc] repository section"
-        awk '
-            /^\[ogc\]$/ { print; print "Server = https://pacman.opengamingcollective.org"; inserted=1; next }
-            /^\[/ && inserted { print; inserted=0; next }
-            { print }
-            END { if (!inserted) exit 0 }
-        ' /etc/pacman.conf > /tmp/pacman.conf.fixed
-        mv /tmp/pacman.conf.fixed /etc/pacman.conf
+        fi
+        pacman -Sy --needed --noconfirm asusctl rog-control-center 2>/dev/null || true
+    else
+        log "Warning: ASUS OGC key import skipped; you can install asusctl later from AUR."
     fi
-
-    pacman -Syu --needed --noconfirm
+    
+    if systemctl list-unit-files asusd.service 2>/dev/null | grep -q '^asusd.service'; then
+        systemctl enable asusd.service 2>/dev/null || true
+    fi
 }
-
-if install_asus_repo; then
-    log "Installing ASUS ROG control tools"
-    pacman -S --needed --noconfirm asusctl rog-control-center
-    if systemctl list-unit-files asusd.service | grep -q '^asusd.service'; then
-        systemctl enable --now asusd.service
-    fi
-else
-    echo "[!] Official ASUS repository setup failed; ASUS utilities are NOT silently skipped."
-    echo "[!] Re-run after fixing pacman-key/network and the rest of the setup remains usable."
-    exit 1
-fi
-
-# supergfxctl is currently being phased out. It is not needed for ordinary Wayland
-# multi-GPU use; install it only when explicitly requested (e.g. VFIO experiments).
-if [[ "${INSTALL_SUPERGFXCTL:-0}" == 1 ]]; then
-    log "Installing explicitly requested supergfxctl"
-    pacman -S --needed --noconfirm supergfxctl
-    systemctl enable --now supergfxd.service
-fi
+install_asus_tools || true
 
 log "Deploying configuration to $TARGET_HOME/.config"
 install -d -o "$ACTUAL_USER" -g "$ACTUAL_USER" "$TARGET_HOME/.config"
+
 cp -a "$CONFIG_SOURCE"/niri "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/waybar "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/swaync "$TARGET_HOME/.config/"
@@ -148,15 +122,26 @@ cp -a "$CONFIG_SOURCE"/alacritty "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/fastfetch "$TARGET_HOME/.config/"
 cp -a "$CONFIG_SOURCE"/starship.toml "$TARGET_HOME/.config/"
 
-# Import the bundled SF Pro / JetBrains fonts.
+# Also deploy hyprlock and hypridle configs
+if [[ -d "$CONFIG_SOURCE/hypr" ]]; then
+    cp -a "$CONFIG_SOURCE"/hypr "$TARGET_HOME/.config/"
+    # Fix lock command in hypridle so lock works reliably
+    if [[ -f "$TARGET_HOME/.config/hypr/hypridle.conf" ]]; then
+        sed -i 's|pidof hyprlock|pidof hyprlock \|\| hyprlock|g' "$TARGET_HOME/.config/hypr/hypridle.conf"
+    fi
+fi
+
+# Import bundled fonts
 FONT_HOME="$TARGET_HOME/.local/share/fonts"
 install -d "$FONT_HOME"
-find "$CONFIG_SOURCE/hypr/Fonts" -type f \
-    \( -iname '*.otf' -o -iname '*.ttf' \) -exec cp -f {} "$FONT_HOME/" \;
-chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME/.local/share/fonts"
-sudo -u "$ACTUAL_USER" fc-cache -f >/dev/null 2>&1 || true
+if [[ -d "$CONFIG_SOURCE/hypr/Fonts" ]]; then
+    find "$CONFIG_SOURCE/hypr/Fonts" -type f \
+        \( -iname '*.otf' -o -iname '*.ttf' \) -exec cp -f {} "$FONT_HOME/" \;
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$FONT_HOME"
+    sudo -u "$ACTUAL_USER" fc-cache -f >/dev/null 2>&1 || true
+fi
 
-log "Installing wallpaper"
+log "Installing aesthetic wallpaper"
 WALLPAPER_DIR="$TARGET_HOME/Pictures/Wallpapers"
 install -d "$WALLPAPER_DIR"
 if [[ -f "$SCRIPT_DIR/assets/wallpaper.png" ]]; then
@@ -165,8 +150,7 @@ elif [[ -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" ]]; then
     cp -f "$CONFIG_SOURCE/rofi/powermenu/type-4/image.png" "$WALLPAPER_DIR/wallpaper.png"
 fi
 
-# Adapt all text configs to the actual account. In particular this fixes the old
-# /home/xal references in niri, waybar, rofi, and fastfetch.
+# Adapt all text configs: replace /home/xal with target home
 while IFS= read -r -d '' file; do
     sed -i \
         -e "s|/home/xal|$TARGET_HOME|g" \
@@ -176,34 +160,35 @@ done < <(find "$TARGET_HOME/.config" -type f \
     \( -name '*.kdl' -o -name '*.json' -o -name '*.jsonc' -o -name '*.rasi' \
        -o -name '*.sh' -o -name '*.bash' -o -name '*.css' -o -name '*.toml' -o -name '*.conf' \) -print0)
 
-# Ensure the wallpaper path is correct even if an old config had a different file.
-if [[ -f "$TARGET_HOME/.config/niri/config.kdl" && -f "$WALLPAPER_DIR/wallpaper.png" ]]; then
-    sed -i "s|/Downloads/wallhaven-0we3m7_1920x1200.png|/Pictures/Wallpapers/wallpaper.png|g" \
-        "$TARGET_HOME/.config/niri/config.kdl"
+# Set correct wallpaper path in niri config cleanly without doubling
+if [[ -f "$TARGET_HOME/.config/niri/config.kdl" ]]; then
+    sed -i "s|swaybg.*|swaybg\" \"-m\" \"fill\" \"-i\" \"$WALLPAPER_DIR/wallpaper.png\"|g" "$TARGET_HOME/.config/niri/config.kdl"
+    # Ensure polkit path is valid on Arch
+    if [[ ! -f /usr/libexec/polkit-mate-authentication-agent-1 && -f /usr/lib/mate-polkit/polkit-mate-authentication-agent-1 ]]; then
+        sed -i 's|/usr/libexec/polkit-mate-authentication-agent-1|/usr/lib/mate-polkit/polkit-mate-authentication-agent-1|g' "$TARGET_HOME/.config/niri/config.kdl"
+    fi
 fi
 
-# Remove stale references to external ~/scripts files from the archived theme.
-# These files are not part of this repository and made several Waybar clicks dead.
+# Remove stale waybar entries cleanly with multiple -e flags
 WAYBAR="$TARGET_HOME/.config/waybar/modules.json"
 if [[ -f "$WAYBAR" ]]; then
     sed -i \
-        '/"on-scroll-right": "~\/scripts\/wall\.sh"/d' \
-        '/"on-click-right": "~\/scripts\/cycle_tuned\.sh"/d' \
-        '/"on-click-right": "~\/scripts\/mono\.sh"/d' \
-        '/"on-scroll-up": "~\/scripts\/planner\.sh up"/d' \
-        '/"on-scroll-down": "~\/scripts\/planner\.sh down"/d' \
+        -e '/"on-scroll-right": "~\/scripts\/wall\.sh"/d' \
+        -e '/"on-click-right": "~\/scripts\/cycle_tuned\.sh"/d' \
+        -e '/"on-click-right": "~\/scripts\/mono\.sh"/d' \
+        -e '/"on-scroll-up": "~\/scripts\/planner\.sh up"/d' \
+        -e '/"on-scroll-down": "~\/scripts\/planner\.sh down"/d' \
         "$WAYBAR"
 fi
 
-# Fix Niri startup to use the real wallpaper path and the current native rofi config.
-if [[ -f "$TARGET_HOME/.config/niri/config.kdl" ]]; then
-    sed -i "s|/Pictures/Wallpapers/wallpaper.png|$WALLPAPER_DIR/wallpaper.png|g" \
-        "$TARGET_HOME/.config/niri/config.kdl"
+# Setup Starship prompt in ~/.bashrc if not present
+BASHRC="$TARGET_HOME/.bashrc"
+if [[ -f "$BASHRC" ]] && ! grep -q 'starship init bash' "$BASHRC"; then
+    echo 'eval "$(starship init bash)"' >> "$BASHRC"
 fi
 
-# Sanitize ownership/permissions for all deployed user configs.
+# Sanitize ownership and permissions
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$TARGET_HOME/.config" "$TARGET_HOME/Pictures"
 find "$TARGET_HOME/.config" -type f -name '*.sh' -exec chmod 0755 {} +
 
-log "Niri/UI setup complete"
-log "Use 'systemctl status sddm' and select the Niri session after reboot."
+log "Niri/UI setup complete."

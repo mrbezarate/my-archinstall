@@ -151,6 +151,8 @@ for ui_tool in waybar:Waybar rofi:Rofi swaync:SwayNC kitty:Kitty alacritty:Alacr
     name="${ui_tool#*:}"
     if command -v "$bin" >/dev/null 2>&1; then
         report_ok "$name interface component ready"
+    elif [[ "$bin" == "wlogout" ]]; then
+        report_warn "$name ($bin) is an optional AUR component"
     else
         report_fail "$name component ($bin) is NOT installed"
     fi

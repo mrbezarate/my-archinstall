@@ -101,6 +101,17 @@ pacman_install \
     noto-fonts-emoji \
     woff2-font-awesome
 
+# Build wlogout from upstream source (it is an AUR package not present in official repos)
+if ! command -v wlogout >/dev/null 2>&1; then
+    log "Compiling wlogout from source..."
+    pacman -S --needed --noconfirm meson ninja scdoc gtk3 gtk-layer-shell 2>/dev/null || true
+    rm -rf /tmp/wlogout
+    if git clone --depth 1 https://github.com/ArtsyMacaw/wlogout.git /tmp/wlogout 2>/dev/null; then
+        (cd /tmp/wlogout && meson setup build --prefix=/usr && ninja -C build install) 2>/dev/null || true
+        rm -rf /tmp/wlogout
+    fi
+fi
+
 systemctl enable --now NetworkManager.service 2>/dev/null || true
 systemctl enable --now bluetooth.service 2>/dev/null || true
 systemctl enable --now power-profiles-daemon.service 2>/dev/null || true

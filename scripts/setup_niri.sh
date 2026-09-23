@@ -59,11 +59,9 @@ pacman_install \
     xdg-desktop-portal-gtk \
     xdg-desktop-portal-gnome
 
-log "Installing Niri/Wayland UI"
+log "Installing Hyprland / Wayland UI (xarefin rice)"
 pacman_install \
-    niri \
     hyprland \
-    xwayland-satellite \
     waybar \
     swaync \
     rofi \
@@ -107,7 +105,7 @@ systemctl enable --now bluetooth.service 2>/dev/null || true
 systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
 systemctl enable sddm.service 2>/dev/null || true
 
-log "Configuring SDDM Display Manager (Default session: Niri, cursor: visible)"
+log "Configuring SDDM Display Manager (Default session: Hyprland, cursor: visible)"
 install -d -m 0755 /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/10-session.conf <<'EOF'
 [Theme]
@@ -115,7 +113,7 @@ Current=breeze
 CursorTheme=breeze_cursors
 
 [Users]
-DefaultSession=niri.desktop
+DefaultSession=hyprland.desktop
 EOF
 
 # If Breeze theme is available, use our beautiful wallpaper in SDDM login screen

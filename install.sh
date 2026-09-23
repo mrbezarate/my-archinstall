@@ -202,7 +202,7 @@ echo -e "\n${CYAN}>>> STEP 1: NVIDIA RTX 4060 / Wayland Setup <<<${NC}"
 echo -e "\n${CYAN}>>> STEP 2: KVM / QEMU / Virt-Manager / Network Lab <<<${NC}"
 "$SCRIPT_DIR/scripts/setup_kvm.sh"
 
-echo -e "\n${CYAN}>>> STEP 3: Niri Desktop / Waybar / SwayNC / SDDM <<<${NC}"
+echo -e "\n${CYAN}>>> STEP 3: Hyprland Desktop (xarefin rice) / Waybar / SwayNC / SDDM <<<${NC}"
 "$SCRIPT_DIR/scripts/setup_niri.sh"
 
 echo -e "\n${CYAN}>>> STEP 4: Comprehensive System Verification <<<${NC}"
@@ -212,9 +212,9 @@ echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN}   INSTALLATION COMPLETE ? EVERYTHING VERIFIED!      ${NC}"
 echo -e "${GREEN}======================================================${NC}"
 echo -e "${BLUE}Install log saved to: ${LOG_FILE}${NC}"
-echo -e "${BLUE}A reboot is recommended to start the Niri session.${NC}\n"
+echo -e "${BLUE}A reboot is recommended to start the Hyprland session.${NC}\n"
 
-read -r -p "Reboot now into Niri? [Y/n] " answer
+read -r -p "Reboot now into Hyprland? [Y/n] " answer
 if [[ ! "$answer" =~ ^[Nn]$ ]]; then
     echo -e "${BLUE}[*] Rebooting...${NC}"
     systemctl reboot

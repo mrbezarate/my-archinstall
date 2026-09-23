@@ -127,32 +127,26 @@ for grp in libvirt kvm wireshark; do
 done
 
 # ---------------------------------------------------------------------
-# 3. DESKTOP COMPOSITORS (NIRI & HYPRLAND)
+# 3. DESKTOP COMPOSITOR (HYPRLAND)
 # ---------------------------------------------------------------------
-echo -e "\n${BLUE}${BOLD}[3/6] Window Compositors (Niri & Hyprland)${NC}"
-if command -v niri >/dev/null 2>&1; then
-    report_ok "Niri compositor installed: $(command -v niri)"
-else
-    report_fail "Niri compositor is NOT installed"
-fi
-
+echo -e "\n${BLUE}${BOLD}[3/6] Window Compositor (Hyprland)${NC}"
 if command -v Hyprland >/dev/null 2>&1 || command -v hyprland >/dev/null 2>&1; then
     report_ok "Hyprland compositor installed"
 else
-    report_warn "Hyprland is not installed (optional, Niri is primary)"
+    report_fail "Hyprland compositor is NOT installed"
 fi
 
-if [[ -f /usr/share/wayland-sessions/niri.desktop ]]; then
-    report_ok "Niri session registered in Display Manager (/usr/share/wayland-sessions/niri.desktop)"
+if [[ -f /usr/share/wayland-sessions/hyprland.desktop ]]; then
+    report_ok "Hyprland session registered in Display Manager (/usr/share/wayland-sessions/hyprland.desktop)"
 else
-    report_warn "niri.desktop not found in /usr/share/wayland-sessions/"
+    report_warn "hyprland.desktop not found in /usr/share/wayland-sessions/"
 fi
 
 # ---------------------------------------------------------------------
-# 4. DESKTOP UI COMPONENTS (WAYBAR, ROFI, SWAYNC, ETC.)
+# 4. DESKTOP UI COMPONENTS (WAYBAR, ROFI, SWAYNC, KITTY, WLOGOUT, ETC.)
 # ---------------------------------------------------------------------
 echo -e "\n${BLUE}${BOLD}[4/6] Desktop UI Components${NC}"
-for ui_tool in waybar:Waybar rofi:Rofi swaync:SwayNC alacritty:Alacritty swaybg:SwayBG hyprlock:Hyprlock hypridle:Hypridle pipewire:PipeWire firefox:Firefox; do
+for ui_tool in waybar:Waybar rofi:Rofi swaync:SwayNC kitty:Kitty alacritty:Alacritty wlogout:Wlogout swaybg:SwayBG hyprlock:Hyprlock hypridle:Hypridle pipewire:PipeWire firefox:Firefox; do
     bin="${ui_tool%%:*}"
     name="${ui_tool#*:}"
     if command -v "$bin" >/dev/null 2>&1; then
@@ -167,20 +161,10 @@ done
 # ---------------------------------------------------------------------
 echo -e "\n${BLUE}${BOLD}[5/6] User Configuration & Dotfiles ($HOME_DIR/.config)${NC}"
 
-if [[ -f "$HOME_DIR/.config/niri/config.kdl" ]]; then
-    if grep -q '/home/xal' "$HOME_DIR/.config/niri/config.kdl"; then
-        report_fail "Niri config still has unreplaced /home/xal paths!"
-    else
-        report_ok "Niri config ($HOME_DIR/.config/niri/config.kdl) properly deployed"
-    fi
+if [[ -f "$HOME_DIR/.config/hypr/hyprland.lua" || -f "$HOME_DIR/.config/hypr/hyprland.conf" ]]; then
+    report_ok "Hyprland configuration (hyprland.lua / hyprland.conf) deployed"
 else
-    report_fail "Niri config ($HOME_DIR/.config/niri/config.kdl) is MISSING!"
-fi
-
-if [[ -f "$HOME_DIR/.config/hypr/hyprland.conf" ]]; then
-    report_ok "Hyprland config ($HOME_DIR/.config/hypr/hyprland.conf) deployed"
-else
-    report_warn "Hyprland config ($HOME_DIR/.config/hypr/hyprland.conf) is missing"
+    report_fail "Neither hyprland.lua nor hyprland.conf exists in $HOME_DIR/.config/hypr/"
 fi
 
 if [[ -d "$HOME_DIR/.local" ]] && [[ "$(stat -c '%U' "$HOME_DIR/.local" 2>/dev/null)" == "root" ]]; then

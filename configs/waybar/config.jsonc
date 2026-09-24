@@ -43,8 +43,8 @@
         "show-special": false,
         "tooltip" : false,
         "on-click": "activate",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e+1\" })'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e-1\" })'",
+        "on-scroll-up": "hyprctl dispatch workspace e+1",
+        "on-scroll-down": "hyprctl dispatch workspace e-1",
         "persistent-workspaces": {
             "*": 10
         },
@@ -114,10 +114,10 @@
     "custom/weather": {
         "format": "{}",
         "return-type": "json",
-        "exec": "/home/arefin/.config/hypr/scripts/weather.py",
+        "exec": "~/.config/hypr/scripts/weather.py",
         "interval": 10,
         "tooltip": true,
-        "on-click": "/home/arefin/.config/hypr/scripts/weather.py --click"
+        "on-click": "~/.config/hypr/scripts/weather.py --click"
     },
     "custom/vitals": {
     "exec": "~/.config/hypr/scripts/vitals.sh",
@@ -128,14 +128,12 @@
     "tooltip": true
 },
     "backlight": {
-        "device": "intel_backlight",
         "format": "{icon} {percent}%",
         "format-icons": ["󰃞", "󰃟", "󰃠"],
         "on-scroll-up": "brightnessctl set +1%",
         "on-scroll-down": "brightnessctl set 1%-",
-        "on-click": "kitty brightness-tui",
         "tooltip": true,
-        "tooltip-format": "󰃞 Backlight Level: {percent}%\n󰌆 Controller: intel_backlight"
+        "tooltip-format": "󰃞 Backlight Level: {percent}%"
     },
     "pulseaudio": {
         "format": "{icon} {volume}%",
@@ -150,7 +148,7 @@
             "car": "",
             "default": ["", "", ""]
         },
-        "on-click": "kitty wiremix",
+        "on-click": "pavucontrol",
         "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
         "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +1%",
         "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -1%",
@@ -162,7 +160,7 @@
         "format-source": " {volume}%",
         "format-source-muted": " ",
         "on-click-right": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-        "on-click": "kitty wiremix -v input",
+        "on-click": "pavucontrol -t 4",
         "on-scroll-up": "pactl set-source-volume @DEFAULT_SOURCE@ +1%",
         "on-scroll-down": "pactl set-source-volume @DEFAULT_SOURCE@ -1%",
         "max-volume": 100,
@@ -176,8 +174,8 @@
         "max-length": 10,
         "tooltip": true,
         "tooltip-format": "  Name: {essid}\n󰈀 Interface: {ifname} via {gwaddr}\n󰩟 IP: {ipaddr}/{cidr}\n󰖩 Signal: {signaldBm}dBm ({signalStrength}%)",
-        "on-click": "kitty wlctl",
-        "on-click-right": "kitty bandwhich"
+        "on-click": "nm-connection-editor",
+        "on-click-right": "kitty nmtui"
     },
     "bluetooth": {
         "format": "󰂯",
@@ -190,7 +188,7 @@
         "tooltip-format-connected": "󰂯 {controller_alias}\t{controller_address}\n\n󰓩 {num_connections} connected:\n{device_enumerate}",
         "tooltip-format-enumerate-connected": "󰂱 {device_alias}\t{device_address}",
         "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias}\t{device_address}\t{device_battery_percentage}%",
-        "on-click": "kitty bluetui",
+        "on-click": "kitty bluetoothctl",
         "on-click-right": "bluetoothctl power toggle"
     },
     "battery": {
@@ -206,7 +204,7 @@
         "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
         "tooltip": true,
         "tooltip-format": "󱐋 Power: {timeTo}\n󱃌 Power draw: {power:0.1f} W\n󰓅 Health: {health}%",
-        "on-click": "kitty battop"
+        "on-click": "kitty btop"
     },
     "custom/notification": {
         "format": "{icon} {text}",
@@ -231,6 +229,6 @@
     "custom/power": {
         "format": "⏻",
         "tooltip": false,
-        "on-click": "wlogout"
+        "on-click": "wlogout || ~/.config/rofi/powermenu/type-4/powermenu.sh"
     }
 }

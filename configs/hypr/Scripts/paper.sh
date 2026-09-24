@@ -35,27 +35,31 @@ if [ "$ROFI_RETV" -eq 1 ] && [ -n "$1" ]; then
     image_path="$WALLPAPER_DIR/$1"
 
     if [ -f "$image_path" ]; then
-        # Ensure awww daemon is running
-        if ! awww query &>/dev/null; then
-            awww-daemon >/dev/null 2>&1 &
-            sleep 0.2
+        # Set wallpaper using awww or swaybg fallback
+        if command -v awww >/dev/null 2>&1; then
+            if ! awww query &>/dev/null; then
+                awww-daemon >/dev/null 2>&1 &
+                sleep 0.2
+            fi
+            awww img "$image_path" \
+                --transition-type any \
+                --transition-pos 0.5,0.5 \
+                --transition-step 30 \
+                --transition-fps 144 \
+                --transition-duration 2.5 >/dev/null 2>&1 &
+        elif command -v swaybg >/dev/null 2>&1; then
+            pkill swaybg 2>/dev/null
+            swaybg -m fill -i "$image_path" >/dev/null 2>&1 &
         fi
 
-        # Set wallpaper in background silently
-        awww img "$image_path" \
-            --transition-type any \
-            --transition-pos 0.5,0.5 \
-            --transition-step 30 \
-            --transition-fps 144 \
-            --transition-duration 2.5 >/dev/null 2>&1 &
+        # Sync wallpaper to active user files
+        cp -f "$image_path" "$HOME/Pictures/Wallpapers/wallpaper.png" >/dev/null 2>&1 &
+        cp -f "$image_path" "$HOME/.cache/log.png" >/dev/null 2>&1 &
 
-        # Copy image in background silently
-        cp "$image_path" "$HOME/.cache/log.png" >/dev/null 2>&1 &
-
-        # Sync image to SDDM silently in background with ownership and permissions
-        sudo cp "$image_path" /usr/share/sddm/themes/sword/arch.png >/dev/null 2>&1
-        sudo chown root:root /usr/share/sddm/themes/sword/arch.png >/dev/null 2>&1
-        sudo chmod 644 /usr/share/sddm/themes/sword/arch.png >/dev/null 2>&1 &
+        # Sync image to SDDM theme if accessible
+        if [ -d /usr/share/sddm/themes/sddm-astronaut-theme ]; then
+            sudo cp -f "$image_path" /usr/share/sddm/themes/sddm-astronaut-theme/Backgrounds/wallpaper.png >/dev/null 2>&1 || true
+        fi
 
         # Run color update detached completely discarding output
         ( apply_colors "$image_path" ) >/dev/null 2>&1 &

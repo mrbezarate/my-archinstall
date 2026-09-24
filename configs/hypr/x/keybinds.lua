@@ -163,9 +163,9 @@ hl.bind("XF86AudioPrev",                      hl.dsp.exec_cmd("playerctl previou
 ---------------------
 
 -- Screenshots & Satty
-hl.bind(mainMod .. " + SHIFT + S",            hl.dsp.exec_cmd([[grim -g "$(slurp)" - | satty --filename - --output-filename /home/arefin/Pictures/Screenshots/Screenshot_$(date +'%Y-%m-%d_%H-%M-%S').png --early-exit --actions-on-enter save-to-clipboard --copy-command 'wl-copy']]))
-hl.bind("CTRL + SHIFT + S",                   hl.dsp.exec_cmd([[grim -g "$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')" - | satty --filename - --output-filename /home/arefin/Pictures/Screenshots/Screenshot_$(date +'%Y-%m-%d_%H-%M-%S').png --early-exit --actions-on-enter save-to-clipboard --copy-command 'wl-copy']]))
-hl.bind("CTRL + SHIFT + F",                   hl.dsp.exec_cmd([[grim - | satty --filename - --output-filename /home/arefin/Pictures/Screenshots/Screenshot_$(date +'%Y-%m-%d_%H-%M-%S').png --early-exit --actions-on-enter save-to-clipboard --copy-command 'wl-copy']]))
+hl.bind(mainMod .. " + SHIFT + S",            hl.dsp.exec_cmd([[sh -c 'mkdir -p ~/Pictures/Screenshots && grim -g "$(slurp)" - | satty --filename - --output-filename ~/Pictures/Screenshots/Screenshot_$(date +%Y-%m-%d_%H-%M-%S).png --early-exit --actions-on-enter save-to-clipboard --copy-command wl-copy']]))
+hl.bind("CTRL + SHIFT + S",                   hl.dsp.exec_cmd([[sh -c 'mkdir -p ~/Pictures/Screenshots && grim -g "$(hyprctl activewindow -j | jq -r "\"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])\"")" - | satty --filename - --output-filename ~/Pictures/Screenshots/Screenshot_$(date +%Y-%m-%d_%H-%M-%S).png --early-exit --actions-on-enter save-to-clipboard --copy-command wl-copy']]))
+hl.bind("CTRL + SHIFT + F",                   hl.dsp.exec_cmd([[sh -c 'mkdir -p ~/Pictures/Screenshots && grim - | satty --filename - --output-filename ~/Pictures/Screenshots/Screenshot_$(date +%Y-%m-%d_%H-%M-%S).png --early-exit --actions-on-enter save-to-clipboard --copy-command wl-copy']]))
 
 -- Extras & Pickers
 hl.bind("SUPER + E", hl.dsp.exec_cmd([[sh -c 'if pgrep -x rofi >/dev/null; then pkill -x rofi; else ~/.config/hypr/scripts/emoji.sh -matching fuzzy; fi']]))

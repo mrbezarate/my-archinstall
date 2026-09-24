@@ -34,7 +34,7 @@ window {
     fullscreen:                  true;
     cursor:                      "default";
     background-color:            var(background-window);
-    background-image:            url("/home/xal/.config/rofi/powermenu/type-4/image.png", height);
+    background-image:            url("~/.config/rofi/powermenu/type-4/image.png", height);
 }
 
 /*****----- Main Box -----*****/

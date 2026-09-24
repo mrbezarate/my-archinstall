@@ -150,11 +150,11 @@ EOF
     # Early KMS in mkinitcpio so display drivers load before login screen
     if [[ -f /etc/mkinitcpio.conf ]]; then
         # For hybrid laptops, ensure i915 loads before nvidia to prevent black screen freezes
-        if [[ "$HAS_INTEL_GPU" == "true" ]] && ! grep -q 'i915' /etc/mkinitcpio.conf; then
+        if [[ "$HAS_INTEL_GPU" == "true" ]] && ! grep -qw 'i915' /etc/mkinitcpio.conf; then
             sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 i915)/" /etc/mkinitcpio.conf
         fi
         for mod in nvidia nvidia_modeset nvidia_uvm nvidia_drm; do
-            if ! grep -q "$mod" /etc/mkinitcpio.conf; then
+            if ! grep -qw "$mod" /etc/mkinitcpio.conf; then
                 sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $mod)/" /etc/mkinitcpio.conf
             fi
         done

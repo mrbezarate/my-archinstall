@@ -4,6 +4,13 @@
 AC_PATH=$(ls -d /sys/class/power_supply/AC* /sys/class/power_supply/ADP* 2>/dev/null | head -n 1)
 BAT_PATH=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n 1)
 
+# If no physical battery exists (e.g. Virtual Machine or desktop PC), exit cleanly
+if [ -z "$BAT_PATH" ]; then
+    if ! command -v acpi >/dev/null 2>&1 || ! acpi -b 2>/dev/null | grep -q 'Battery'; then
+        exit 0
+    fi
+fi
+
 send_notif() {
     local title="$1"
     local message="$2"

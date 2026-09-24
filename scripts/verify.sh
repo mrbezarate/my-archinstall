@@ -225,6 +225,8 @@ fi
 
 if [[ -d "$HOME_DIR/.local" ]] && [[ "$(stat -c '%U' "$HOME_DIR/.local" 2>/dev/null)" == "root" ]]; then
     report_fail "Home subfolder $HOME_DIR/.local is owned by root! (Causes login kickback)"
+elif [[ -d "$HOME_DIR/.config" ]] && [[ "$(stat -c '%U' "$HOME_DIR/.config" 2>/dev/null)" == "root" ]]; then
+    report_fail "Home subfolder $HOME_DIR/.config is owned by root! (Causes login kickback)"
 else
     report_ok "User home directory permissions are clean (owned by $USER_NAME)"
 fi

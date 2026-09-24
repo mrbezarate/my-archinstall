@@ -41,6 +41,10 @@ detect_environment() {
     export HAS_INTEL_GPU="false"
     export HAS_AMD_GPU="false"
 
+    if ! command -v lspci >/dev/null 2>&1; then
+        pacman -S --needed --noconfirm pciutils >/dev/null 2>&1 || true
+    fi
+
     if command -v lspci >/dev/null 2>&1; then
         local pci_display
         pci_display="$(lspci 2>/dev/null | grep -iE 'vga compatible controller|3d controller|display controller' || true)"

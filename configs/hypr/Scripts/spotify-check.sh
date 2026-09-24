@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH="$PATH:/home/arefin/.spicetify"
+export PATH="$PATH:$HOME/.spicetify"
 
 if pgrep -x spotify > /dev/null; then
     spicetify refresh -s

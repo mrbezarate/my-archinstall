@@ -4,10 +4,10 @@
 
 hl.config({
     input = {
-        kb_layout  = "us",
+        kb_layout  = "us,ru",
         kb_variant = "",
         kb_model   = "",
-        kb_options = "",
+        kb_options = "grp:alt_shift_toggle",
         kb_rules   = "",
 
         follow_mouse = 1,
@@ -34,11 +34,10 @@ hl.device({
     sensitivity = -0.5,
 })
 
--- auto hide cursor and fix NVIDIA hardware cursor
+-- Cursor configuration
 hl.config({
   cursor = {
     no_hardware_cursors = true,
-    inactive_timeout = 0.1,
   },
 })
 

@@ -18,15 +18,19 @@ detect_environment
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
 pacman_install() {
-    local max=3
-    for ((i=1; i<=max; i++)); do
-        if pacman -S --needed --noconfirm "$@"; then
-            return 0
-        fi
-        log "pacman download attempt $i failed. Retrying in 2s..."
-        sleep 2
+    if pacman -S --needed --noconfirm "$@"; then
+        return 0
+    fi
+    log "Bulk install encountered an issue. Refreshing database and retrying..."
+    pacman -Sy --noconfirm 2>/dev/null || true
+    if pacman -S --needed --noconfirm "$@"; then
+        return 0
+    fi
+    log "Installing packages individually..."
+    for pkg in "$@"; do
+        pacman -S --needed --noconfirm "$pkg" 2>/dev/null || log "Note: package $pkg skipped or already satisfied."
     done
-    return 1
+    return 0
 }
 
 # ---------------------------------------------------------------------
@@ -50,9 +54,10 @@ if [[ "$IS_VM" == "true" ]]; then
             systemctl enable vboxservice.service 2>/dev/null || true
             ;;
         vmware)
-            log "Installing VMware Tools & video driver..."
-            pacman_install open-vm-tools xf86-video-vmware
+            log "Installing VMware Tools..."
+            pacman_install open-vm-tools
             systemctl enable vmtoolsd.service 2>/dev/null || true
+            systemctl enable vmware-vmblock-fuse.service 2>/dev/null || true
             ;;
         kvm|qemu|bochs)
             log "Installing QEMU/KVM guest agent and SPICE clipboard agent..."

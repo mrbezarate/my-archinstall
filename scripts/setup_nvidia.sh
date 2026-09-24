@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Graphics & Hardware Driver Setup (Adaptive for Bare-Metal & VMs)
+# Auto-detects: NVIDIA dGPU, Intel iGPU, AMD, VirtualBox, VMware, KVM
+# =====================================================================
 set -Eeuo pipefail
 
 if [[ ${EUID} -ne 0 ]]; then
     echo "[!] Run this script through install.sh or with sudo."
     exit 1
 fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/env_detect.sh
+source "$SCRIPT_DIR/env_detect.sh"
+detect_environment
 
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
@@ -20,9 +29,63 @@ pacman_install() {
     return 1
 }
 
-log "Configuring NVIDIA RTX 4060 for Wayland"
+# ---------------------------------------------------------------------
+# CASE 1: VIRTUAL MACHINE ENVIRONMENT (VirtualBox / VMware / QEMU / KVM)
+# ---------------------------------------------------------------------
+if [[ "$IS_VM" == "true" ]]; then
+    log "Configuring graphics & guest tools for Virtual Machine (${VM_TYPE})"
+    
+    # Base virtual 3D acceleration and input stack
+    pacman_install \
+        mesa \
+        vulkan-virtio \
+        vulkan-icd-loader \
+        libinput \
+        xf86-input-libinput
 
-# Install matching kernel headers for installed kernels
+    case "$VM_TYPE" in
+        oracle|virtualbox)
+            log "Installing VirtualBox Guest Additions..."
+            pacman_install virtualbox-guest-utils
+            systemctl enable vboxservice.service 2>/dev/null || true
+            ;;
+        vmware)
+            log "Installing VMware Tools & video driver..."
+            pacman_install open-vm-tools xf86-video-vmware
+            systemctl enable vmtoolsd.service 2>/dev/null || true
+            ;;
+        kvm|qemu|bochs)
+            log "Installing QEMU/KVM guest agent and SPICE clipboard agent..."
+            pacman_install qemu-guest-agent spice-vdagent
+            systemctl enable qemu-guest-agent.service 2>/dev/null || true
+            ;;
+        *)
+            log "Generic VM detected. Installing mesa & spice-vdagent..."
+            pacman_install spice-vdagent 2>/dev/null || true
+            ;;
+    esac
+
+    # Ensure touchpad/mouse tapping is enabled
+    install -d -m 0755 /etc/X11/xorg.conf.d
+    cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<'EOF'
+Section "InputClass"
+    Identifier "touchpad"
+    Driver "libinput"
+    MatchIsTouchpad "on"
+    Option "Tapping" "on"
+    Option "NaturalScrolling" "true"
+EndSection
+EOF
+
+    log "Virtual Machine graphics and guest integration configured successfully."
+    exit 0
+fi
+
+# ---------------------------------------------------------------------
+# CASE 2: BARE-METAL PHYSICAL MACHINE (ASUS ROG / Intel / NVIDIA / AMD)
+# ---------------------------------------------------------------------
+
+# 1. Install matching kernel headers for DKMS modules
 header_pkgs=()
 while IFS= read -r kernel_pkg; do
     case "$kernel_pkg" in
@@ -38,35 +101,85 @@ if ((${#header_pkgs[@]})); then
     pacman_install "${header_pkgs[@]}"
 fi
 
-log "Installing Intel Iris Xe iGPU, Mesa, and Touchpad drivers"
-pacman_install \
-    mesa \
-    vulkan-intel \
-    intel-media-driver \
-    libinput \
-    xf86-input-libinput
-
-log "Installing NVIDIA userspace + open DKMS driver"
-pacman_install \
-    nvidia-open-dkms \
-    nvidia-utils \
-    nvidia-settings \
-    nvidia-prime \
-    egl-wayland \
-    opencl-nvidia
-
-if pacman -Si lib32-nvidia-utils >/dev/null 2>&1; then
-    pacman_install lib32-nvidia-utils || true
+# 2. Intel iGPU (common on ASUS ROG laptops alongside RTX 4060)
+if [[ "$HAS_INTEL_GPU" == "true" ]]; then
+    log "Installing Intel Iris Xe / UHD graphics & hardware acceleration..."
+    pacman_install \
+        mesa \
+        vulkan-intel \
+        intel-media-driver \
+        libva-intel-driver \
+        libinput \
+        xf86-input-libinput
 fi
 
-# Persistent DRM modeset + fbdev for Wayland on modern NVIDIA
-install -d -m 0755 /etc/modprobe.d
-cat > /etc/modprobe.d/nvidia.conf <<'EOF'
+# 3. AMD GPU
+if [[ "$HAS_AMD_GPU" == "true" ]]; then
+    log "Installing AMD Radeon graphics & hardware acceleration..."
+    pacman_install \
+        mesa \
+        vulkan-radeon \
+        xf86-video-amdgpu \
+        libva-mesa-driver \
+        libinput \
+        xf86-input-libinput
+fi
+
+# 4. NVIDIA dGPU (ASUS ROG Strix G16 RTX 4060)
+if [[ "$HAS_NVIDIA" == "true" ]]; then
+    log "Installing NVIDIA RTX userspace + open DKMS driver..."
+    pacman_install \
+        nvidia-open-dkms \
+        nvidia-utils \
+        nvidia-settings \
+        nvidia-prime \
+        egl-wayland \
+        opencl-nvidia
+
+    if pacman -Si lib32-nvidia-utils >/dev/null 2>&1; then
+        pacman_install lib32-nvidia-utils || true
+    fi
+
+    # Persistent DRM modeset + fbdev for Wayland on modern NVIDIA
+    install -d -m 0755 /etc/modprobe.d
+    cat > /etc/modprobe.d/nvidia.conf <<'EOF'
 options nvidia_drm modeset=1 fbdev=1
 options nvidia NVreg_PreserveVideoMemoryAllocations=1
 EOF
 
-# Ensure touchpad tapping and natural scrolling are enabled system-wide
+    # Early KMS in mkinitcpio so display drivers load before login screen
+    if [[ -f /etc/mkinitcpio.conf ]]; then
+        # For hybrid laptops, ensure i915 loads before nvidia to prevent black screen freezes
+        if [[ "$HAS_INTEL_GPU" == "true" ]] && ! grep -q 'i915' /etc/mkinitcpio.conf; then
+            sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 i915)/" /etc/mkinitcpio.conf
+        fi
+        for mod in nvidia nvidia_modeset nvidia_uvm nvidia_drm; do
+            if ! grep -q "$mod" /etc/mkinitcpio.conf; then
+                sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $mod)/" /etc/mkinitcpio.conf
+            fi
+        done
+    fi
+
+    # DKMS module build
+    if command -v dkms >/dev/null 2>&1; then
+        log "Checking NVIDIA DKMS status..."
+        dkms autoinstall || true
+    fi
+
+    # Regenerate initramfs
+    if command -v mkinitcpio >/dev/null 2>&1; then
+        log "Regenerating initramfs (early KMS modules)..."
+        mkinitcpio -P || true
+    fi
+
+    for unit in nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service; do
+        if systemctl list-unit-files "$unit" >/dev/null 2>&1 && systemctl list-unit-files "$unit" | grep -q "$unit"; then
+            systemctl enable "$unit" 2>/dev/null || true
+        fi
+    done
+fi
+
+# Touchpad tapping and natural scrolling
 install -d -m 0755 /etc/X11/xorg.conf.d
 cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<'EOF'
 Section "InputClass"
@@ -79,31 +192,4 @@ Section "InputClass"
 EndSection
 EOF
 
-# Early KMS in mkinitcpio so display drivers load before login screen
-if [[ -f /etc/mkinitcpio.conf ]]; then
-    for mod in nvidia nvidia_modeset nvidia_uvm nvidia_drm; do
-        if ! grep -q "$mod" /etc/mkinitcpio.conf; then
-            sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $mod)/" /etc/mkinitcpio.conf
-        fi
-    done
-fi
-
-# DKMS pacman hooks compile modules automatically. dkms autoinstall is non-fatal if running kernel differs from new headers
-if command -v dkms >/dev/null 2>&1; then
-    log "Checking NVIDIA DKMS status..."
-    dkms autoinstall || true
-fi
-
-# mkinitcpio creates the initramfs ramdisk for early driver loading (NOT a bootloader)
-if command -v mkinitcpio >/dev/null 2>&1; then
-    log "Regenerating initramfs (early KMS modules)..."
-    mkinitcpio -P || true
-fi
-
-for unit in nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service; do
-    if systemctl list-unit-files "$unit" >/dev/null 2>&1 && systemctl list-unit-files "$unit" | grep -q "$unit"; then
-        systemctl enable "$unit" 2>/dev/null || true
-    fi
-done
-
-log "NVIDIA setup complete."
+log "Physical hardware graphics drivers installed successfully."

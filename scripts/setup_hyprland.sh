@@ -16,6 +16,11 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_SOURCE="$SCRIPT_DIR/configs"
 
+# Source environment profile
+# shellcheck source=scripts/env_detect.sh
+source "$SCRIPT_DIR/scripts/env_detect.sh"
+detect_environment
+
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
 pacman_install() {
@@ -156,6 +161,15 @@ fi
 
 # ASUS tools (asusctl): attempt official repository or AUR fallback without aborting on network errors
 install_asus_tools() {
+    if [[ "$IS_VM" == "true" ]]; then
+        log "Virtual Machine environment detected (${VM_TYPE}). Skipping physical ASUS utilities."
+        return 0
+    fi
+    if [[ "$IS_ASUS" != "true" ]]; then
+        log "Non-ASUS hardware detected. Skipping ASUS ROG utilities."
+        return 0
+    fi
+
     log "Configuring ASUS ROG utilities..."
     pacman-key --init 2>/dev/null || true
     
@@ -204,6 +218,19 @@ if [[ -d "$CONFIG_SOURCE/hypr" ]]; then
     cp -a "$CONFIG_SOURCE"/hypr "$TARGET_HOME/.config/"
     if [[ -f "$TARGET_HOME/.config/hypr/hypridle.conf" ]]; then
         sed -i 's|pidof hyprlock|pidof hyprlock \|\| hyprlock|g' "$TARGET_HOME/.config/hypr/hypridle.conf"
+    fi
+
+    # Dynamic environment-aware Hyprland configuration
+    if [[ "$IS_VM" == "true" ]]; then
+        log "Applying Virtual Machine display flags (WLR_RENDERER_ALLOW_SOFTWARE, no-hardware-cursors)..."
+        if ! grep -q 'WLR_RENDERER_ALLOW_SOFTWARE' "$TARGET_HOME/.config/hypr/hyprland.conf"; then
+            sed -i '1i env = WLR_NO_HARDWARE_CURSORS,1\nenv = WLR_RENDERER_ALLOW_SOFTWARE,1' "$TARGET_HOME/.config/hypr/hyprland.conf"
+        fi
+    elif [[ "$HAS_NVIDIA" == "true" ]]; then
+        log "Applying physical NVIDIA display flags to Hyprland..."
+        if ! grep -q 'LIBVA_DRIVER_NAME,nvidia' "$TARGET_HOME/.config/hypr/hyprland.conf"; then
+            sed -i '1i env = LIBVA_DRIVER_NAME,nvidia\nenv = __GLX_VENDOR_LIBRARY_NAME,nvidia' "$TARGET_HOME/.config/hypr/hyprland.conf"
+        fi
     fi
 fi
 

@@ -38,40 +38,94 @@ echo -e "${CYAN}${BOLD}       SYSTEM HEALTH & CONFIGURATION AUDIT            ${N
 echo -e "${CYAN}${BOLD}======================================================${NC}"
 echo -e "Target User: ${BOLD}$USER_NAME${NC} | Home: ${BOLD}$HOME_DIR${NC}\n"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/env_detect.sh
+source "$SCRIPT_DIR/env_detect.sh"
+detect_environment
+
 # ---------------------------------------------------------------------
-# 1. NVIDIA RTX 4060 & DRIVERS
+# 1. GRAPHICS & DISPLAY INTEGRATION (ADAPTIVE FOR VM & PHYSICAL GPU)
 # ---------------------------------------------------------------------
-echo -e "${BLUE}${BOLD}[1/6] NVIDIA RTX 4060 & Graphic Drivers${NC}"
-if pacman -Q nvidia-open-dkms >/dev/null 2>&1 || pacman -Q nvidia >/dev/null 2>&1 || pacman -Q nvidia-dkms >/dev/null 2>&1; then
-    nv_pkg=$(pacman -Q nvidia-open-dkms 2>/dev/null || pacman -Q nvidia 2>/dev/null || pacman -Q nvidia-dkms 2>/dev/null)
-    report_ok "NVIDIA kernel driver installed: $nv_pkg"
-else
-    report_fail "NVIDIA kernel driver package not found!"
-fi
+if [[ "$IS_VM" == "true" ]]; then
+    echo -e "${BLUE}${BOLD}[1/6] Graphics & Display Integration (Virtual Machine: ${VM_TYPE})${NC}"
+    if pacman -Q mesa >/dev/null 2>&1; then
+        report_ok "Mesa 3D graphics drivers installed"
+    else
+        report_fail "Mesa graphics driver is missing"
+    fi
 
-if pacman -Q nvidia-utils >/dev/null 2>&1; then
-    report_ok "NVIDIA userspace utilities (nvidia-utils) installed"
-else
-    report_fail "nvidia-utils is missing"
-fi
+    if pacman -Q vulkan-virtio >/dev/null 2>&1 || pacman -Q vulkan-icd-loader >/dev/null 2>&1; then
+        report_ok "Vulkan virtual graphics support installed"
+    else
+        report_warn "vulkan-virtio not installed"
+    fi
 
-if command -v nvidia-smi >/dev/null 2>&1; then
-    gpu_name=$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || echo "NVIDIA GPU")
-    report_ok "nvidia-smi detected hardware: $gpu_name"
+    case "$VM_TYPE" in
+        oracle|virtualbox)
+            if pacman -Q virtualbox-guest-utils >/dev/null 2>&1; then
+                report_ok "VirtualBox Guest Integration (virtualbox-guest-utils) installed"
+            else
+                report_warn "virtualbox-guest-utils not installed"
+            fi
+            ;;
+        vmware)
+            if pacman -Q open-vm-tools >/dev/null 2>&1; then
+                report_ok "VMware Tools (open-vm-tools) installed"
+            else
+                report_warn "open-vm-tools not installed"
+            fi
+            ;;
+        kvm|qemu|bochs)
+            if pacman -Q qemu-guest-agent >/dev/null 2>&1 || pacman -Q spice-vdagent >/dev/null 2>&1; then
+                report_ok "QEMU/KVM guest agent / SPICE clipboard integration installed"
+            else
+                report_warn "QEMU guest agent not installed"
+            fi
+            ;;
+        *)
+            report_ok "Generic VM graphics configuration active"
+            ;;
+    esac
 else
-    report_warn "nvidia-smi not yet loaded into active kernel (will be active after reboot)"
-fi
+    echo -e "${BLUE}${BOLD}[1/6] Physical Graphics & Display Integration${NC}"
+    if [[ "$HAS_NVIDIA" == "true" ]]; then
+        if pacman -Q nvidia-open-dkms >/dev/null 2>&1 || pacman -Q nvidia >/dev/null 2>&1 || pacman -Q nvidia-dkms >/dev/null 2>&1; then
+            nv_pkg=$(pacman -Q nvidia-open-dkms 2>/dev/null || pacman -Q nvidia 2>/dev/null || pacman -Q nvidia-dkms 2>/dev/null)
+            report_ok "NVIDIA kernel driver installed: $nv_pkg"
+        else
+            report_fail "NVIDIA kernel driver package not found!"
+        fi
 
-if [[ -f /etc/modprobe.d/nvidia.conf ]] && grep -q 'modeset=1' /etc/modprobe.d/nvidia.conf; then
-    report_ok "DRM Kernel Mode Setting enabled in /etc/modprobe.d/nvidia.conf"
-else
-    report_warn "DRM modeset not configured in /etc/modprobe.d/nvidia.conf"
-fi
+        if pacman -Q nvidia-utils >/dev/null 2>&1; then
+            report_ok "NVIDIA userspace utilities (nvidia-utils) installed"
+        else
+            report_fail "nvidia-utils is missing"
+        fi
 
-if command -v prime-run >/dev/null 2>&1; then
-    report_ok "NVIDIA PRIME offload launcher (prime-run) available"
-else
-    report_warn "prime-run is missing (optional)"
+        if [[ -f /etc/modprobe.d/nvidia.conf ]] && grep -q 'modeset=1' /etc/modprobe.d/nvidia.conf; then
+            report_ok "DRM Kernel Mode Setting enabled in /etc/modprobe.d/nvidia.conf"
+        else
+            report_warn "DRM modeset not configured in /etc/modprobe.d/nvidia.conf"
+        fi
+
+        if command -v prime-run >/dev/null 2>&1; then
+            report_ok "NVIDIA PRIME offload launcher (prime-run) available"
+        else
+            report_warn "prime-run is missing (optional)"
+        fi
+    fi
+
+    if [[ "$HAS_INTEL_GPU" == "true" ]]; then
+        if pacman -Q vulkan-intel >/dev/null 2>&1 || pacman -Q intel-media-driver >/dev/null 2>&1; then
+            report_ok "Intel Iris Xe / UHD hardware acceleration drivers installed"
+        fi
+    fi
+
+    if [[ "$HAS_AMD_GPU" == "true" ]]; then
+        if pacman -Q vulkan-radeon >/dev/null 2>&1; then
+            report_ok "AMD Radeon Vulkan graphics driver installed"
+        fi
+    fi
 fi
 
 # ---------------------------------------------------------------------

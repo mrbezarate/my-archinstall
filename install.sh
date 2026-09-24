@@ -72,6 +72,34 @@ fi
 usermod -aG wheel "$TARGET_USER"
 
 # ---------------------------------------------------------------------
+# Hardware & Environment Auto-Detection
+# ---------------------------------------------------------------------
+# shellcheck source=scripts/env_detect.sh
+source "$SCRIPT_DIR/scripts/env_detect.sh"
+detect_environment
+
+echo -e "\n${CYAN}>>> DETECTED HARDWARE & ENVIRONMENT PROFILE <<<${NC}"
+if [[ "$IS_VM" == "true" ]]; then
+    echo -e "  ${GREEN}[✓]${NC} Environment:    ${YELLOW}Virtual Machine (${VM_TYPE})${NC}"
+    echo -e "  ${GREEN}[✓]${NC} Target Graphics: ${CYAN}Virtual GPU (Mesa + Guest Integration)${NC}"
+else
+    echo -e "  ${GREEN}[✓]${NC} Environment:    ${GREEN}Physical Machine (Bare-Metal)${NC}"
+    detected_gpus=()
+    [[ "$HAS_INTEL_GPU" == "true" ]] && detected_gpus+=("Intel iGPU")
+    [[ "$HAS_NVIDIA" == "true" ]] && detected_gpus+=("NVIDIA dGPU")
+    [[ "$HAS_AMD_GPU" == "true" ]] && detected_gpus+=("AMD Radeon")
+    echo -e "  ${GREEN}[✓]${NC} Target Graphics: ${CYAN}${detected_gpus[*]:-Standard Mesa}${NC}"
+fi
+if [[ "$IS_ASUS" == "true" ]]; then
+    echo -e "  ${GREEN}[✓]${NC} ASUS Platform:  ${MAGENTA}ASUS ROG / TUF Gaming Detected${NC}"
+fi
+if [[ "$HAS_CPU_VIRT" == "true" ]]; then
+    echo -e "  ${GREEN}[✓]${NC} Virtualization: ${GREEN}Hardware VT-x / AMD-V Active${NC}"
+else
+    echo -e "  ${YELLOW}[!]${NC} Virtualization: ${YELLOW}Hardware nested virt disabled (emulation mode)${NC}"
+fi
+
+# ---------------------------------------------------------------------
 # Pre-flight environment diagnostics and network/mirror optimizer
 # ---------------------------------------------------------------------
 preflight_check() {

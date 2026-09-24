@@ -12,6 +12,11 @@ if [[ -z "$ACTUAL_USER" || "$ACTUAL_USER" == root ]] || ! getent passwd "$ACTUAL
     exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/env_detect.sh
+source "$SCRIPT_DIR/env_detect.sh"
+detect_environment
+
 log() { printf '\033[0;36m[*]\033[0m %s\n' "$*"; }
 
 pacman_install() {
